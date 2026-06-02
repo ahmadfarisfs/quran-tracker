@@ -4,10 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#1a6b3e">
-  <meta name="description" content="Track your Quran recitation journey to khatam">
+  <meta name="description" content="Track your Quran recitation journey to khatam. Set a personalised schedule across all 5 daily prayers and follow your progress day by day.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="QuranTracker">
+  <!-- Open Graph / link preview -->
+  <meta property="og:type"        content="website">
+  <meta property="og:url"         content="https://ahmadfarisfs.github.io/quran-tracker/">
+  <meta property="og:title"       content="Quran Khatam Tracker — متابعة ختم القرآن">
+  <meta property="og:description" content="Set your khatam goal in days or by a target date. Get a personalised reading schedule for each of the 5 daily prayers, displayed as Surah and Ayat. Track your progress with charts and session history.">
+  <meta property="og:image"       content="https://ahmadfarisfs.github.io/quran-tracker/icon.svg">
+  <meta name="twitter:card"        content="summary">
+  <meta name="twitter:title"       content="Quran Khatam Tracker">
+  <meta name="twitter:description" content="Personalised Quran recitation schedule split across your 5 daily prayers. Track progress, set goals, installable as a PWA.">
+  <meta name="twitter:image"       content="https://ahmadfarisfs.github.io/quran-tracker/icon.svg">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.svg">
   <title>Quran Khatam Tracker</title>
@@ -615,6 +625,32 @@
       padding: 4px;
     }
 
+    /* ---- Mode Toggle (days / date) ---- */
+    .toggle-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .toggle-btn {
+      flex: 1;
+      padding: 10px 8px;
+      background: var(--green-bg-light);
+      border: 2px solid var(--green-bg);
+      border-radius: var(--r-sm);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.22s;
+    }
+    .toggle-btn.active {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+      font-weight: 600;
+    }
+
     /* ---- Section visibility ---- */
     .section { display: none; }
     .section.active { display: block; }
@@ -652,9 +688,21 @@
 
     <div class="card">
       <div class="form-group">
-        <label class="form-label">Target: finish khatam in how many days?</label>
-        <input type="number" class="form-input" id="inpDays" min="1" max="730" value="30" oninput="updatePreview()">
-        <p class="form-hint">30 days = 1 month · 7 days = 1 week · 3 days = quick khatam</p>
+        <label class="form-label">Target completion</label>
+        <div class="toggle-row">
+          <button class="toggle-btn active" id="btnModeDays" onclick="setMode('days')">📅 In N days</button>
+          <button class="toggle-btn"        id="btnModeDate" onclick="setMode('date')">🗓️ By a date</button>
+        </div>
+        <!-- Days mode -->
+        <div id="modeDays">
+          <input type="number" class="form-input" id="inpDays" min="1" max="730" value="30" oninput="updatePreview()">
+          <p class="form-hint">30 days = 1 month · 7 days = 1 week · 3 days = quick khatam</p>
+        </div>
+        <!-- Date mode -->
+        <div id="modeDate" style="display:none">
+          <input type="date" class="form-input" id="inpTargetDate" onchange="targetDateChanged()">
+          <p class="form-hint" id="targetDateHint">Pick the date you want to finish by.</p>
+        </div>
       </div>
 
       <div class="form-group">
@@ -955,6 +1003,42 @@ function currentPrayerIdx() {
 // ════════════════════════════════════════════════════════════════
 // SETUP
 // ════════════════════════════════════════════════════════════════
+let _mode = 'days'; // 'days' | 'date'
+
+function setMode(m) {
+  _mode = m;
+  document.getElementById('modeDays').style.display = m === 'days' ? '' : 'none';
+  document.getElementById('modeDate').style.display = m === 'date' ? '' : 'none';
+  document.getElementById('btnModeDays').classList.toggle('active', m === 'days');
+  document.getElementById('btnModeDate').classList.toggle('active', m === 'date');
+  updatePreview();
+}
+
+function targetDateChanged() {
+  const td = document.getElementById('inpTargetDate').value;
+  const sd = document.getElementById('inpDate').value || todayKey();
+  if (td && sd) {
+    const days = Math.max(1, Math.ceil((new Date(td) - new Date(sd)) / 86400000));
+    document.getElementById('inpDays').value = days;
+    const d = new Date(td);
+    document.getElementById('targetDateHint').textContent =
+      `That's ${days} day${days !== 1 ? 's' : ''} from your start date (${fmtDateShort(d)}).`;
+  }
+  updatePreview();
+}
+
+function getTargetDays() {
+  if (_mode === 'date') {
+    const td = document.getElementById('inpTargetDate').value;
+    const sd = document.getElementById('inpDate').value || todayKey();
+    if (td && sd) return Math.max(1, Math.ceil((new Date(td) - new Date(sd)) / 86400000));
+  }
+  return Math.max(1, parseInt(document.getElementById('inpDays').value) || 30);
+}
+
+function fmtDateShort(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 // Populate surah dropdown (called once at boot)
 function buildSurahOptions() {
@@ -1006,7 +1090,7 @@ function resolveStart() {
 }
 
 function updatePreview() {
-  const days  = parseInt(document.getElementById('inpDays').value) || 30;
+  const days  = getTargetDays();
   const { startPage } = resolveStart();
   const pages = TOTAL_PAGES - startPage + 1;
   const daily = pages / days;
@@ -1020,9 +1104,9 @@ function updatePreview() {
 }
 
 function startTracker() {
-  const days = parseInt(document.getElementById('inpDays').value);
+  const days = getTargetDays();
   if (!days || days < 1 || days > 730) {
-    alert('Please enter a valid number of days (1–730).');
+    alert('Please set a valid target (1–730 days).');
     return;
   }
   const { startPage, startSurahNum, startAyat, label } = resolveStart();
@@ -1031,8 +1115,10 @@ function startTracker() {
   const dailyPages      = pages / days;
   const pagesPerSession = dailyPages / 5;
 
+  const targetDate = _mode === 'date' ? document.getElementById('inpTargetDate').value : null;
   S = {
     targetDays: days,
+    targetDate,
     startDate: document.getElementById('inpDate').value || todayKey(),
     startPage,
     startSurahNum: startSurahNum || 1,
@@ -1365,6 +1451,7 @@ function renderSettings() {
       <p class="card-title">⚙️ Your Plan</p>
       <div class="settings-row"><span class="settings-label">Target days</span><span class="settings-val">${S.targetDays} days</span></div>
       <div class="settings-row"><span class="settings-label">Start date</span><span class="settings-val">${S.startDate}</span></div>
+      ${S.targetDate ? `<div class="settings-row"><span class="settings-label">Target finish date</span><span class="settings-val">${S.targetDate}</span></div>` : ''}
       <div class="settings-row"><span class="settings-label">Starting position</span><span class="settings-val">${S.startLabel || 'Al-Fatihah : 1'}</span></div>
       <div class="settings-row"><span class="settings-label">Daily pages</span><span class="settings-val">${S.dailyPages.toFixed(1)} pages</span></div>
       <div class="settings-row"><span class="settings-label">Pages per session</span><span class="settings-val">${S.pagesPerSession.toFixed(1)} pages</span></div>
