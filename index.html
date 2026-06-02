@@ -960,16 +960,17 @@ function surahIdxByPage(pg) {
   return 0;
 }
 
+// Accepts fractional page numbers so within-page position gives distinct ayat.
 function pageToPos(pg) {
-  pg = Math.max(1, Math.min(TOTAL_PAGES, Math.floor(pg)));
-  const i = surahIdxByPage(pg);
+  const pgClamped = Math.max(1, Math.min(TOTAL_PAGES, pg));
+  const i = surahIdxByPage(Math.floor(pgClamped));
   const s = SURAHS[i];
   const nextPg = i < SURAHS.length - 1 ? SURAHS[i+1][4] : TOTAL_PAGES + 1;
   const span = nextPg - s[4];
-  const pos  = pg - s[4];
+  const pos  = pgClamped - s[4]; // fractional position within surah's page range
   let ayat;
-  if (span <= 1) {
-    ayat = pos > 0 ? s[3] : 1;
+  if (span <= 0) {
+    ayat = 1;
   } else {
     ayat = Math.round((pos / span) * s[3]) + 1;
     ayat = Math.max(1, Math.min(ayat, s[3]));
@@ -978,15 +979,20 @@ function pageToPos(pg) {
 }
 
 function rangeLabel(startPg, endPg) {
-  startPg = Math.max(1, Math.floor(startPg));
-  endPg   = Math.min(TOTAL_PAGES, Math.floor(endPg));
+  startPg = Math.max(1, startPg);
+  endPg   = Math.min(TOTAL_PAGES, endPg);
   if (startPg > TOTAL_PAGES) return null;
+  // Use fractional pages for precise ayat interpolation
   const a = pageToPos(startPg);
   const b = pageToPos(endPg);
+  // Integer page numbers for display
+  const dispStart = Math.min(TOTAL_PAGES, Math.ceil(startPg));
+  const dispEnd   = Math.max(dispStart, Math.floor(endPg));
   return {
     startNum: a.num, startAr: a.ar, startEn: a.en, startAyat: a.ayat,
     endNum:   b.num, endAr:   b.ar, endEn:   b.en, endAyat:   b.ayat,
-    startPg, endPg, pages: endPg - startPg + 1
+    startPg: dispStart, endPg: dispEnd,
+    pages: dispEnd - dispStart + 1
   };
 }
 
@@ -1232,8 +1238,9 @@ function renderDashboard() {
 
   const { basePage, pps, baseDate } = getEffectiveState();
   const read  = pagesRead();
-  const pct   = targetPct();
-  const oPct  = overallPct();
+  const kPct  = targetPct();   // khatam-specific (starts 0 if mid-Quran)
+  const oPct  = overallPct();  // overall Quran position (accounts for start page immediately)
+  const pct   = oPct;          // ring shows overall so it's never 0% when starting mid-Quran
   const dayN  = dayNumber();
 
   if (read >= TOTAL_PAGES - S.startPage + 1) { renderCompletion(); return; }
@@ -1259,7 +1266,7 @@ function renderDashboard() {
     // Session index from the effective base date
     const gSess = daysSinceBase * 5 + i;
     const spg   = basePage + gSess * pps;
-    const epg   = basePage + (gSess + 1) * pps - 1;
+    const epg   = basePage + (gSess + 1) * pps; // exclusive end, no -1 (that broke fractional pps)
     const rng   = rangeLabel(spg, epg);
 
     const done    = S.completed[key][i];
@@ -1335,14 +1342,14 @@ function renderDashboard() {
           </svg>
           <div class="ring-text">
             <div class="ring-pct">${pct}%</div>
-            <div class="ring-lbl">Complete</div>
+            <div class="ring-lbl">Of Quran</div>
           </div>
         </div>
         <div class="stats-grid">
           <div class="stat-box"><div class="stat-val">${read}</div><div class="stat-lbl">Pages Read</div></div>
           <div class="stat-box"><div class="stat-val">${TOTAL_PAGES - S.startPage + 1 - read}</div><div class="stat-lbl">Pages Left</div></div>
+          <div class="stat-box"><div class="stat-val">${kPct}%</div><div class="stat-lbl">Khatam Done</div></div>
           <div class="stat-box"><div class="stat-val">${daysLeft}</div><div class="stat-lbl">Days Left</div></div>
-          <div class="stat-box"><div class="stat-val">${pps.toFixed(1)}</div><div class="stat-lbl">Pg/Session Now</div></div>
         </div>
       </div>
     </div>
