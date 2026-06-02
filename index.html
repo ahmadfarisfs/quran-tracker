@@ -564,6 +564,51 @@
     }
     .btn-danger:hover { background: #e53935; color: #fff; }
 
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      background: var(--green-bg-light);
+      border: 2px solid var(--green-bg);
+      border-radius: var(--r-sm);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--green-mid);
+      cursor: pointer;
+      transition: all 0.22s;
+    }
+    .btn-secondary:hover { background: var(--green-bg); border-color: var(--green-pale); }
+
+    .update-panel {
+      background: var(--green-bg-light);
+      border: 2px solid var(--green-bg);
+      border-radius: var(--r-sm);
+      padding: 14px;
+      margin-bottom: 12px;
+      animation: fadeInUp 0.25s ease;
+    }
+    .checkpoint-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--green-bg);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      color: var(--green-mid);
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .recalc-note {
+      font-size: 0.75rem;
+      color: var(--green-light);
+      background: var(--green-bg-light);
+      border-left: 3px solid var(--green-light);
+      padding: 8px 10px;
+      border-radius: 0 6px 6px 0;
+      margin-top: 10px;
+    }
+
     /* ---- Divider ornament ---- */
     .ornament {
       text-align: center;
@@ -948,37 +993,6 @@ function rangeLabel(startPg, endPg) {
 // ════════════════════════════════════════════════════════════════
 // PROGRESS HELPERS
 // ════════════════════════════════════════════════════════════════
-function totalDoneSessions() {
-  let n = 0;
-  for (const k in S.completed) n += S.completed[k].filter(Boolean).length;
-  return n;
-}
-
-function pagesRead() {
-  return Math.min(
-    Math.round(totalDoneSessions() * S.pagesPerSession),
-    TOTAL_PAGES - S.startPage + 1
-  );
-}
-
-function currentAbsPage() {
-  return Math.min(TOTAL_PAGES, S.startPage - 1 + pagesRead());
-}
-
-function pagesRemaining() {
-  return TOTAL_PAGES - currentAbsPage();
-}
-
-function overallPct() {
-  // percentage of the full Quran
-  return Math.min(100, Math.round((currentAbsPage() / TOTAL_PAGES) * 100));
-}
-
-function targetPct() {
-  // percentage of *this khatam target* complete
-  const totalTarget = TOTAL_PAGES - S.startPage + 1;
-  return Math.min(100, Math.round((pagesRead() / totalTarget) * 100));
-}
 
 function todayKey() {
   return new Date().toISOString().split('T')[0];
@@ -991,13 +1005,77 @@ function dayNumber() {
   return Math.max(1, Math.floor((now - start) / 86400000) + 1);
 }
 
+function daysBetween(d1str, d2str) {
+  const a = new Date(d1str); a.setHours(0,0,0,0);
+  const b = new Date(d2str); b.setHours(0,0,0,0);
+  return Math.max(0, Math.floor((b - a) / 86400000));
+}
+
+function getTargetEndDate() {
+  if (S.targetDate) return new Date(S.targetDate);
+  const d = new Date(S.startDate);
+  d.setDate(d.getDate() + S.targetDays);
+  return d;
+}
+
+// Returns the effective base for schedule calculation.
+// If user has set a checkpoint, recalculate pps from that point.
+function getEffectiveState() {
+  const cps = S.checkpoints || [];
+  if (cps.length === 0) {
+    return { basePage: S.startPage, pps: S.pagesPerSession, baseDate: S.startDate };
+  }
+  const last = cps[cps.length - 1];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tgt   = getTargetEndDate(); tgt.setHours(0,0,0,0);
+  const daysLeft = Math.max(1, Math.ceil((tgt - today) / 86400000));
+  const pagesLeft = TOTAL_PAGES - last.page + 1;
+  const pps = pagesLeft / daysLeft / 5;
+  return { basePage: last.page, pps, baseDate: last.date };
+}
+
+function countSessionsSince(dateStr) {
+  let n = 0;
+  const since = new Date(dateStr); since.setHours(0,0,0,0);
+  for (const k in S.completed) {
+    const d = new Date(k); d.setHours(0,0,0,0);
+    if (d >= since) n += S.completed[k].filter(Boolean).length;
+  }
+  return n;
+}
+
+function totalDoneSessions() {
+  return countSessionsSince(S.startDate);
+}
+
+function pagesRead() {
+  const { basePage, pps, baseDate } = getEffectiveState();
+  const fromBase = Math.floor(countSessionsSince(baseDate) * pps);
+  const totalFromStart = (basePage - S.startPage) + fromBase;
+  return Math.min(TOTAL_PAGES - S.startPage + 1, Math.max(0, totalFromStart));
+}
+
+function currentAbsPage() {
+  const { basePage, pps, baseDate } = getEffectiveState();
+  return Math.min(TOTAL_PAGES, Math.floor(basePage + countSessionsSince(baseDate) * pps));
+}
+
+function overallPct() {
+  return Math.min(100, Math.round((currentAbsPage() / TOTAL_PAGES) * 100));
+}
+
+function targetPct() {
+  const totalTarget = TOTAL_PAGES - S.startPage + 1;
+  return Math.min(100, Math.round((pagesRead() / totalTarget) * 100));
+}
+
 function currentPrayerIdx() {
   const h = new Date().getHours();
-  if (h >= 4  && h < 12) return 0; // Fajr
-  if (h >= 12 && h < 15) return 1; // Dhuhr
-  if (h >= 15 && h < 18) return 2; // Asr
-  if (h >= 18 && h < 20) return 3; // Maghrib
-  return 4;                         // Isha
+  if (h >= 4  && h < 12) return 0;
+  if (h >= 12 && h < 15) return 1;
+  if (h >= 15 && h < 18) return 2;
+  if (h >= 18 && h < 20) return 3;
+  return 4;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1149,36 +1227,40 @@ function showSection(name) {
 // DASHBOARD
 // ════════════════════════════════════════════════════════════════
 function renderDashboard() {
-  const read   = pagesRead();
-  const pct    = targetPct();
-  const oPct   = overallPct();
-  const dayN   = dayNumber();
-  const key    = todayKey();
-
+  const key  = todayKey();
   if (!S.completed[key]) S.completed[key] = [false,false,false,false,false];
+
+  const { basePage, pps, baseDate } = getEffectiveState();
+  const read  = pagesRead();
+  const pct   = targetPct();
+  const oPct  = overallPct();
+  const dayN  = dayNumber();
 
   if (read >= TOTAL_PAGES - S.startPage + 1) { renderCompletion(); return; }
 
-  // Behind check
-  const doneSess     = totalDoneSessions();
-  const expectedSess = (dayN - 1) * 5;
-  const behindSess   = Math.max(0, expectedSess - doneSess);
+  // Behind check — measure from effective base (checkpoint or start)
+  const doneSincBase = countSessionsSince(baseDate);
+  const daysSinceBase = daysBetween(baseDate, key);
+  const expectedSincBase = daysSinceBase * 5;
+  const behindSess = Math.max(0, expectedSincBase - doneSincBase);
 
-  const daysLeft = Math.max(0, S.targetDays - dayN + 1);
+  // Days left to target
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tgt   = getTargetEndDate(); tgt.setHours(0,0,0,0);
+  const daysLeft = Math.max(0, Math.ceil((tgt - today) / 86400000));
 
   // Ring stroke
   const C = 2 * Math.PI * 45;
   const offset = C - (pct / 100) * C;
 
-  // Prayer cards
-  const dayIdx   = dayN - 1;
-  const curPray  = currentPrayerIdx();
+  const curPray = currentPrayerIdx();
 
   const prayerCardsHtml = PRAYERS.map((name, i) => {
-    const gSess   = dayIdx * 5 + i;
-    const spg     = S.startPage + gSess * S.pagesPerSession;
-    const epg     = S.startPage + (gSess + 1) * S.pagesPerSession - 1;
-    const rng     = rangeLabel(spg, epg);
+    // Session index from the effective base date
+    const gSess = daysSinceBase * 5 + i;
+    const spg   = basePage + gSess * pps;
+    const epg   = basePage + (gSess + 1) * pps - 1;
+    const rng   = rangeLabel(spg, epg);
 
     const done    = S.completed[key][i];
     const current = (i === curPray) && !done;
@@ -1197,8 +1279,8 @@ function renderDashboard() {
     } else {
       bodyHtml = `
         <div class="prayer-range">
-          <span class="ar">${rng.startAr}</span> ${rng.startAyat}
-          → <span class="ar">${rng.endAr}</span> ${rng.endAyat}
+          <span class="ar">${rng.startAr}</span> (${rng.startEn}) ${rng.startAyat}
+          → <span class="ar">${rng.endAr}</span> (${rng.endEn}) ${rng.endAyat}
         </div>
         <span class="prayer-pages-tag">📄 Pg ${rng.startPg}–${rng.endPg} · ${rng.pages} pages</span>`;
     }
@@ -1219,6 +1301,13 @@ function renderDashboard() {
       </div>`;
   }).join('');
 
+  // Last checkpoint badge
+  const cps = S.checkpoints || [];
+  const lastCp = cps.length > 0 ? cps[cps.length - 1] : null;
+  const cpBadge = lastCp
+    ? `<div class="checkpoint-badge">🔄 Recalculated from ${lastCp.label} on ${lastCp.date}</div>`
+    : '';
+
   document.getElementById('dashContent').innerHTML = `
     <div class="today-hdr">
       <div class="today-date">${fmtDate(new Date())}</div>
@@ -1233,6 +1322,7 @@ function renderDashboard() {
 
     <div class="card">
       <p class="card-title">✦ This Khatam Progress</p>
+      ${cpBadge}
       <div class="ring-wrap">
         <div class="ring-svg-wrap">
           <svg width="160" height="160" viewBox="0 0 100 100">
@@ -1252,7 +1342,7 @@ function renderDashboard() {
           <div class="stat-box"><div class="stat-val">${read}</div><div class="stat-lbl">Pages Read</div></div>
           <div class="stat-box"><div class="stat-val">${TOTAL_PAGES - S.startPage + 1 - read}</div><div class="stat-lbl">Pages Left</div></div>
           <div class="stat-box"><div class="stat-val">${daysLeft}</div><div class="stat-lbl">Days Left</div></div>
-          <div class="stat-box"><div class="stat-val">${S.targetDays}</div><div class="stat-lbl">Target Days</div></div>
+          <div class="stat-box"><div class="stat-val">${pps.toFixed(1)}</div><div class="stat-lbl">Pg/Session Now</div></div>
         </div>
       </div>
     </div>
@@ -1262,6 +1352,15 @@ function renderDashboard() {
       <div class="ornament">✦ ✦ ✦</div>
       ${prayerCardsHtml}
     </div>
+
+    <div class="card">
+      <p class="card-title">📝 Update My Reading Position</p>
+      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">
+        Read more or less than scheduled? Enter where you actually are and your schedule will be recalculated for the remaining days.
+      </p>
+      <div id="updatePanel" style="display:none"></div>
+      <button class="btn-secondary" id="updateToggleBtn" onclick="toggleUpdatePanel()">✏️ Set My Current Position</button>
+    </div>
   `;
 }
 
@@ -1269,6 +1368,108 @@ function toggleSession(key, i) {
   if (!S.completed[key]) S.completed[key] = [false,false,false,false,false];
   S.completed[key][i] = !S.completed[key][i];
   saveState();
+  renderDashboard();
+}
+
+// ── Custom progress update ──────────────────────────────────────
+let _updatePanelOpen = false;
+
+function toggleUpdatePanel() {
+  _updatePanelOpen = !_updatePanelOpen;
+  const panel = document.getElementById('updatePanel');
+  const btn   = document.getElementById('updateToggleBtn');
+  if (_updatePanelOpen) {
+    panel.style.display = '';
+    panel.innerHTML = buildUpdatePanelHtml();
+    btn.textContent = '✕ Cancel';
+    // Populate surah dropdown inside the panel
+    const sel = document.getElementById('cpSurah');
+    SURAHS.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s[0];
+      opt.textContent = `${s[0]}. ${s[2]} — ${s[1]}`;
+      sel.appendChild(opt);
+    });
+    // Pre-select current position
+    const cur = pageToPos(currentAbsPage());
+    sel.value = cur.num;
+    updateCpAyatMax();
+    document.getElementById('cpAyat').value = cur.ayat;
+    updateCpPreview();
+  } else {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    btn.textContent = '✏️ Set My Current Position';
+  }
+}
+
+function buildUpdatePanelHtml() {
+  return `
+    <div class="update-panel">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <select class="form-input" id="cpSurah" onchange="updateCpAyatMax();updateCpPreview()" style="flex:2;padding-right:8px">
+          <option value="">— Select Surah —</option>
+        </select>
+        <input type="number" class="form-input" id="cpAyat" min="1" placeholder="Ayat"
+          oninput="updateCpPreview()" style="flex:1;min-width:72px">
+      </div>
+      <div id="cpPreview" class="recalc-note"></div>
+      <button class="btn-primary" style="margin-top:10px" onclick="saveCheckpoint()">
+        ✓ Save &amp; Recalculate Schedule
+      </button>
+    </div>`;
+}
+
+function updateCpAyatMax() {
+  const sel  = document.getElementById('cpSurah');
+  const inp  = document.getElementById('cpAyat');
+  const sNum = parseInt(sel.value);
+  if (!sNum) { inp.removeAttribute('max'); inp.placeholder = 'Ayat'; return; }
+  const s = SURAHS.find(x => x[0] === sNum);
+  inp.max = s[3];
+  inp.placeholder = `Ayat (1–${s[3]})`;
+  if (parseInt(inp.value) > s[3]) inp.value = s[3];
+}
+
+function updateCpPreview() {
+  const sel  = document.getElementById('cpSurah');
+  const inp  = document.getElementById('cpAyat');
+  const prev = document.getElementById('cpPreview');
+  const sNum = parseInt(sel.value);
+  if (!sNum) { prev.textContent = ''; return; }
+  const s    = SURAHS.find(x => x[0] === sNum);
+  const ayat = Math.max(1, Math.min(parseInt(inp.value) || 1, s[3]));
+  const pg   = surahAyatToPage(sNum, ayat);
+
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const tgt      = getTargetEndDate(); tgt.setHours(0,0,0,0);
+  const daysLeft = Math.max(1, Math.ceil((tgt - today) / 86400000));
+  const pgLeft   = TOTAL_PAGES - pg + 1;
+  const newPPS   = pgLeft / daysLeft / 5;
+
+  prev.innerHTML = `
+    New position: <strong>${s[2]} (${s[1]}) : ${ayat}</strong> — page ${pg}<br>
+    Pages left: <strong>${pgLeft}</strong> · Days left: <strong>${daysLeft}</strong><br>
+    New target: <strong>${newPPS.toFixed(1)} pages/session</strong> (${(newPPS * 5).toFixed(1)} pages/day)`;
+}
+
+function saveCheckpoint() {
+  const sel  = document.getElementById('cpSurah');
+  const inp  = document.getElementById('cpAyat');
+  const sNum = parseInt(sel.value);
+  if (!sNum) { alert('Please select a surah.'); return; }
+  const s    = SURAHS.find(x => x[0] === sNum);
+  const ayat = Math.max(1, Math.min(parseInt(inp.value) || 1, s[3]));
+  const pg   = surahAyatToPage(sNum, ayat);
+
+  if (!S.checkpoints) S.checkpoints = [];
+  S.checkpoints.push({
+    date:  todayKey(),
+    page:  pg,
+    label: `${s[2]} (${s[1]}) : ${ayat}`
+  });
+  saveState();
+  _updatePanelOpen = false;
   renderDashboard();
 }
 
@@ -1454,8 +1655,18 @@ function renderSettings() {
       ${S.targetDate ? `<div class="settings-row"><span class="settings-label">Target finish date</span><span class="settings-val">${S.targetDate}</span></div>` : ''}
       <div class="settings-row"><span class="settings-label">Starting position</span><span class="settings-val">${S.startLabel || 'Al-Fatihah : 1'}</span></div>
       <div class="settings-row"><span class="settings-label">Daily pages</span><span class="settings-val">${S.dailyPages.toFixed(1)} pages</span></div>
-      <div class="settings-row"><span class="settings-label">Pages per session</span><span class="settings-val">${S.pagesPerSession.toFixed(1)} pages</span></div>
+      <div class="settings-row"><span class="settings-label">Original pg/session</span><span class="settings-val">${S.pagesPerSession.toFixed(1)} pages</span></div>
+      <div class="settings-row"><span class="settings-label">Current pg/session</span><span class="settings-val">${getEffectiveState().pps.toFixed(1)} pages</span></div>
       <div class="settings-row"><span class="settings-label">Current position</span><span class="settings-val">${pos.ar} : ${pos.ayat}</span></div>
+      ${(S.checkpoints||[]).length > 0 ? `
+      <div style="margin-top:12px">
+        <p style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Position Updates</p>
+        ${S.checkpoints.map(cp => `
+          <div style="font-size:.78rem;padding:6px 0;border-bottom:1px solid var(--green-bg);display:flex;justify-content:space-between">
+            <span style="color:var(--text-muted)">${cp.date}</span>
+            <span style="color:var(--green);font-weight:600">${cp.label}</span>
+          </div>`).join('')}
+      </div>` : ''}
     </div>
 
     <div class="card">
