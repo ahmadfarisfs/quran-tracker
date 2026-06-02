@@ -659,11 +659,17 @@
 
       <div class="form-group">
         <label class="form-label">
-          Starting from page
+          Continue from surah &amp; ayat
           <span class="badge">optional</span>
         </label>
-        <input type="number" class="form-input" id="inpStartPage" min="1" max="604" placeholder="Leave blank to start from page 1" oninput="updatePreview()">
-        <p class="form-hint">If you've already read some pages, enter your current page number.</p>
+        <div style="display:flex;gap:8px;align-items:stretch">
+          <select class="form-input" id="inpStartSurah" onchange="updateAyatMax();updatePreview()" style="flex:2;padding-right:8px">
+            <option value="">Al-Fatihah (Start of Quran)</option>
+          </select>
+          <input type="number" class="form-input" id="inpStartAyat" min="1" value="" placeholder="Ayat"
+            oninput="updatePreview()" style="flex:1;min-width:72px">
+        </div>
+        <p class="form-hint">Leave blank to start from the very beginning (Al-Fatihah:1).</p>
       </div>
 
       <div class="preview-box" id="previewBox">
@@ -949,14 +955,63 @@ function currentPrayerIdx() {
 // ════════════════════════════════════════════════════════════════
 // SETUP
 // ════════════════════════════════════════════════════════════════
+
+// Populate surah dropdown (called once at boot)
+function buildSurahOptions() {
+  const sel = document.getElementById('inpStartSurah');
+  SURAHS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s[0];
+    opt.textContent = `${s[0]}. ${s[2]} — ${s[1]}`;
+    sel.appendChild(opt);
+  });
+}
+
+// Convert surah number + ayat → approximate page number
+function surahAyatToPage(surahNum, ayat) {
+  const idx = SURAHS.findIndex(s => s[0] === surahNum);
+  if (idx < 0) return 1;
+  const s      = SURAHS[idx];
+  const nextPg = idx < SURAHS.length - 1 ? SURAHS[idx + 1][4] : TOTAL_PAGES + 1;
+  const span   = nextPg - s[4];
+  const pg     = s[4] + Math.floor(((ayat - 1) / s[3]) * span);
+  return Math.max(s[4], Math.min(nextPg - 1, pg));
+}
+
+// Update the max ayat allowed when surah changes
+function updateAyatMax() {
+  const sel    = document.getElementById('inpStartSurah');
+  const ayatIn = document.getElementById('inpStartAyat');
+  const sNum   = parseInt(sel.value);
+  if (!sNum) { ayatIn.removeAttribute('max'); ayatIn.placeholder = 'Ayat'; return; }
+  const s = SURAHS.find(x => x[0] === sNum);
+  if (!s) return;
+  ayatIn.max         = s[3];
+  ayatIn.placeholder = `Ayat (1–${s[3]})`;
+  if (parseInt(ayatIn.value) > s[3]) ayatIn.value = s[3];
+}
+
+// Resolve surah:ayat inputs → startPage + label
+function resolveStart() {
+  const sel    = document.getElementById('inpStartSurah');
+  const ayatIn = document.getElementById('inpStartAyat');
+  const sNum   = parseInt(sel.value);
+  if (!sNum) return { startPage: 1, label: 'Al-Fatihah : 1' };
+  const s    = SURAHS.find(x => x[0] === sNum);
+  let ayat   = parseInt(ayatIn.value) || 1;
+  ayat       = Math.max(1, Math.min(ayat, s[3]));
+  const pg   = surahAyatToPage(sNum, ayat);
+  return { startPage: pg, startSurahNum: sNum, startAyat: ayat,
+           label: `${s[2]} (${s[1]}) : ${ayat}` };
+}
+
 function updatePreview() {
-  const days   = parseInt(document.getElementById('inpDays').value)      || 30;
-  const spRaw  = parseInt(document.getElementById('inpStartPage').value);
-  const sp     = (spRaw >= 1 && spRaw <= 604) ? spRaw : 1;
-  const pages  = TOTAL_PAGES - sp + 1;
-  const daily  = pages / days;
-  const sess   = daily / 5;
-  const juz    = daily / 20;
+  const days  = parseInt(document.getElementById('inpDays').value) || 30;
+  const { startPage } = resolveStart();
+  const pages = TOTAL_PAGES - startPage + 1;
+  const daily = pages / days;
+  const sess  = daily / 5;
+  const juz   = daily / 20;
 
   document.getElementById('pvPages').textContent   = pages;
   document.getElementById('pvDaily').textContent   = daily.toFixed(1);
@@ -970,17 +1025,19 @@ function startTracker() {
     alert('Please enter a valid number of days (1–730).');
     return;
   }
-  const spRaw = parseInt(document.getElementById('inpStartPage').value);
-  const startPage = (spRaw >= 1 && spRaw <= 604) ? spRaw : 1;
+  const { startPage, startSurahNum, startAyat, label } = resolveStart();
 
-  const pages          = TOTAL_PAGES - startPage + 1;
-  const dailyPages     = pages / days;
-  const pagesPerSession= dailyPages / 5;
+  const pages           = TOTAL_PAGES - startPage + 1;
+  const dailyPages      = pages / days;
+  const pagesPerSession = dailyPages / 5;
 
   S = {
     targetDays: days,
     startDate: document.getElementById('inpDate').value || todayKey(),
     startPage,
+    startSurahNum: startSurahNum || 1,
+    startAyat: startAyat || 1,
+    startLabel: label,
     dailyPages,
     pagesPerSession,
     completed: {}
@@ -1308,7 +1365,7 @@ function renderSettings() {
       <p class="card-title">⚙️ Your Plan</p>
       <div class="settings-row"><span class="settings-label">Target days</span><span class="settings-val">${S.targetDays} days</span></div>
       <div class="settings-row"><span class="settings-label">Start date</span><span class="settings-val">${S.startDate}</span></div>
-      <div class="settings-row"><span class="settings-label">Start page</span><span class="settings-val">Page ${S.startPage}</span></div>
+      <div class="settings-row"><span class="settings-label">Starting position</span><span class="settings-val">${S.startLabel || 'Al-Fatihah : 1'}</span></div>
       <div class="settings-row"><span class="settings-label">Daily pages</span><span class="settings-val">${S.dailyPages.toFixed(1)} pages</span></div>
       <div class="settings-row"><span class="settings-label">Pages per session</span><span class="settings-val">${S.pagesPerSession.toFixed(1)} pages</span></div>
       <div class="settings-row"><span class="settings-label">Current position</span><span class="settings-val">${pos.ar} : ${pos.ayat}</span></div>
@@ -1377,8 +1434,9 @@ function boot() {
   }
 }
 
-// Set default date
+// Set default date and build surah list
 document.getElementById('inpDate').value = todayKey();
+buildSurahOptions();
 updatePreview();
 
 if (loadState()) boot();
