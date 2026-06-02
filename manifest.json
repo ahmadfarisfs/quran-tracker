@@ -1,0 +1,20 @@
+{
+  "name": "Quran Khatam Tracker",
+  "short_name": "QuranTracker",
+  "description": "Track your Quran recitation journey to khatam",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0f9f4",
+  "theme_color": "#1a6b3e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "productivity"]
+}
