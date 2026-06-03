@@ -362,11 +362,9 @@
       gap: 12px;
       transition: all 0.28s;
       border: 2px solid transparent;
-      cursor: pointer;
-      user-select: none;
     }
-    .prayer-card.pending  { background: #fff; border-color: var(--green-bg); }
-    .prayer-card.done     { background: linear-gradient(135deg, #e8f5ee, #d4edd9); border-color: var(--green-pale); }
+    .prayer-card.upcoming { background: #fff; border-color: var(--green-bg); }
+    .prayer-card.past     { background: var(--green-bg-light); border-color: transparent; opacity: 0.65; }
     .prayer-card.current  {
       background: linear-gradient(135deg, var(--green-bg), #c8ebda);
       border-color: var(--green-light);
@@ -383,9 +381,9 @@
       flex-shrink: 0;
       transition: background 0.28s;
     }
-    .prayer-card.pending .prayer-icon-wrap  { background: var(--green-bg-light); }
-    .prayer-card.done    .prayer-icon-wrap  { background: var(--green); }
-    .prayer-card.current .prayer-icon-wrap  { background: var(--green-light); }
+    .prayer-card.upcoming .prayer-icon-wrap { background: var(--green-bg-light); }
+    .prayer-card.past     .prayer-icon-wrap { background: var(--green-bg); }
+    .prayer-card.current  .prayer-icon-wrap { background: var(--green-light); }
 
     .prayer-body { flex: 1; min-width: 0; }
     .prayer-name-row {
@@ -418,26 +416,27 @@
       border-radius: 8px;
     }
 
-    .check-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 2px solid var(--green-pale);
-      background: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--green-pale);
-      font-size: 1rem;
-      transition: all 0.25s;
-      flex-shrink: 0;
-      font-weight: 700;
+    /* Record progress card */
+    .record-card { border-top: 4px solid var(--green); }
+    .record-hint {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
     }
-    .prayer-card.done .check-btn {
-      background: var(--green);
-      border-color: var(--green);
-      color: #fff;
+    .record-form-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .record-form-row select { flex: 2; padding-right: 8px; }
+    .record-form-row input  { flex: 1; min-width: 72px; }
+    .record-btn { width: 100%; margin-top: 10px; }
+    .schedule-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 10px;
+      font-style: italic;
     }
 
     /* ---- Today header ---- */
@@ -579,14 +578,6 @@
     }
     .btn-secondary:hover { background: var(--green-bg); border-color: var(--green-pale); }
 
-    .update-panel {
-      background: var(--green-bg-light);
-      border: 2px solid var(--green-bg);
-      border-radius: var(--r-sm);
-      padding: 14px;
-      margin-bottom: 12px;
-      animation: fadeInUp 0.25s ease;
-    }
     .checkpoint-badge {
       display: inline-flex;
       align-items: center;
@@ -1067,30 +1058,15 @@ function getEffectiveState() {
   return { basePage: last.page, pps, baseDate: last.date };
 }
 
-function countSessionsSince(dateStr) {
-  let n = 0;
-  const since = new Date(dateStr); since.setHours(0,0,0,0);
-  for (const k in S.completed) {
-    const d = new Date(k); d.setHours(0,0,0,0);
-    if (d >= since) n += S.completed[k].filter(Boolean).length;
-  }
-  return n;
-}
 
-function totalDoneSessions() {
-  return countSessionsSince(S.startDate);
+function currentAbsPage() {
+  const cps = S.checkpoints || [];
+  if (cps.length === 0) return S.startPage;
+  return cps[cps.length - 1].page;
 }
 
 function pagesRead() {
-  const { basePage, pps, baseDate } = getEffectiveState();
-  const fromBase = Math.floor(countSessionsSince(baseDate) * pps);
-  const totalFromStart = (basePage - S.startPage) + fromBase;
-  return Math.min(TOTAL_PAGES - S.startPage + 1, Math.max(0, totalFromStart));
-}
-
-function currentAbsPage() {
-  const { basePage, pps, baseDate } = getEffectiveState();
-  return Math.min(TOTAL_PAGES, Math.floor(basePage + countSessionsSince(baseDate) * pps));
+  return Math.max(0, currentAbsPage() - S.startPage);
 }
 
 function overallPct() {
@@ -1236,7 +1212,7 @@ function startTracker() {
     startLabel: label,
     dailyPages,
     pagesPerSession,
-    completed: {}
+    checkpoints: []
   };
   saveState();
   boot();
@@ -1260,22 +1236,20 @@ function showSection(name) {
 // ════════════════════════════════════════════════════════════════
 function renderDashboard() {
   const key  = todayKey();
-  if (!S.completed[key]) S.completed[key] = [false,false,false,false,false];
-
   const { basePage, pps, baseDate } = getEffectiveState();
   const read  = pagesRead();
-  const kPct  = targetPct();   // khatam-specific (starts 0 if mid-Quran)
-  const oPct  = overallPct();  // overall Quran position (accounts for start page immediately)
-  const pct   = oPct;          // ring shows overall so it's never 0% when starting mid-Quran
+  const kPct  = targetPct();
+  const oPct  = overallPct();
+  const pct   = oPct;
   const dayN  = dayNumber();
 
   if (read >= TOTAL_PAGES - S.startPage + 1) { renderCompletion(); return; }
 
-  // Behind check — measure from effective base (checkpoint or start)
-  const doneSincBase = countSessionsSince(baseDate);
+  // Behind check: compare last-recorded page vs expected page by now
   const daysSinceBase = daysBetween(baseDate, key);
-  const expectedSincBase = daysSinceBase * 5;
-  const behindSess = Math.max(0, expectedSincBase - doneSincBase);
+  const expectedPage  = Math.min(TOTAL_PAGES, basePage + daysSinceBase * 5 * pps);
+  const behindPages   = Math.max(0, Math.round(expectedPage - currentAbsPage()));
+  const behindSess    = behindPages > 0 ? Math.max(1, Math.round(behindPages / Math.max(pps, 0.1))) : 0;
 
   // Days left to target
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1295,9 +1269,7 @@ function renderDashboard() {
     const epg   = basePage + (gSess + 1) * pps; // exclusive end, no -1 (that broke fractional pps)
     const rng   = rangeLabel(spg, epg);
 
-    const done    = S.completed[key][i];
-    const current = (i === curPray) && !done;
-    const cls     = done ? 'done' : (current ? 'current' : 'pending');
+    const cls = i === curPray ? 'current' : (i < curPray ? 'past' : 'upcoming');
 
     let bodyHtml;
     if (!rng) {
@@ -1319,7 +1291,7 @@ function renderDashboard() {
     }
 
     return `
-      <div class="prayer-card ${cls}" onclick="toggleSession('${key}',${i})">
+      <div class="prayer-card ${cls}">
         <div class="prayer-icon-wrap">${PRAYER_ICO[i]}</div>
         <div class="prayer-body">
           <div class="prayer-name-row">
@@ -1328,18 +1300,8 @@ function renderDashboard() {
           </div>
           ${bodyHtml}
         </div>
-        <button class="check-btn" onclick="toggleSession('${key}',${i});event.stopPropagation()">
-          ${done ? '✓' : '○'}
-        </button>
       </div>`;
   }).join('');
-
-  // Last checkpoint badge
-  const cps = S.checkpoints || [];
-  const lastCp = cps.length > 0 ? cps[cps.length - 1] : null;
-  const cpBadge = lastCp
-    ? `<div class="checkpoint-badge">🔄 Recalculated from ${lastCp.label} on ${lastCp.date}</div>`
-    : '';
 
   document.getElementById('dashContent').innerHTML = `
     <div class="today-hdr">
@@ -1350,12 +1312,19 @@ function renderDashboard() {
 
     ${behindSess > 0 ? `
     <div class="warning-bar">
-      ⚠️ You're <strong>&nbsp;${behindSess} session${behindSess>1?'s':''} behind&nbsp;</strong>. Try to catch up today!
+      ⚠️ You're <strong>&nbsp;~${behindSess} session${behindSess>1?'s':''} behind schedule&nbsp;</strong>. Record progress to recalculate!
     </div>` : ''}
+
+    <div class="card record-card">
+      <p class="card-title">📍 Record My Progress</p>
+      <p class="record-hint">Where did you stop reading today?</p>
+      <div id="recordForm"></div>
+      <div id="cpPreview" class="recalc-note" style="display:none"></div>
+      <button class="btn-primary record-btn" onclick="saveCheckpoint()">✓ Save &amp; Update Schedule</button>
+    </div>
 
     <div class="card">
       <p class="card-title">✦ This Khatam Progress</p>
-      ${cpBadge}
       <div class="ring-wrap">
         <div class="ring-svg-wrap">
           <svg width="160" height="160" viewBox="0 0 100 100">
@@ -1383,74 +1352,37 @@ function renderDashboard() {
     <div class="card">
       <p class="card-title">🕌 Today's Prayer Schedule</p>
       <div class="ornament">✦ ✦ ✦</div>
+      <p class="schedule-hint">Reading targets for each prayer — for guidance only</p>
       ${prayerCardsHtml}
     </div>
-
-    <div class="card">
-      <p class="card-title">📝 Update My Reading Position</p>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">
-        Read more or less than scheduled? Enter where you actually are and your schedule will be recalculated for the remaining days.
-      </p>
-      <div id="updatePanel" style="display:none"></div>
-      <button class="btn-secondary" id="updateToggleBtn" onclick="toggleUpdatePanel()">✏️ Set My Current Position</button>
-    </div>
   `;
+
+  renderRecordForm();
 }
 
-function toggleSession(key, i) {
-  if (!S.completed[key]) S.completed[key] = [false,false,false,false,false];
-  S.completed[key][i] = !S.completed[key][i];
-  saveState();
-  renderDashboard();
-}
-
-// ── Custom progress update ──────────────────────────────────────
-let _updatePanelOpen = false;
-
-function toggleUpdatePanel() {
-  _updatePanelOpen = !_updatePanelOpen;
-  const panel = document.getElementById('updatePanel');
-  const btn   = document.getElementById('updateToggleBtn');
-  if (_updatePanelOpen) {
-    panel.style.display = '';
-    panel.innerHTML = buildUpdatePanelHtml();
-    btn.textContent = '✕ Cancel';
-    // Populate surah dropdown inside the panel
-    const sel = document.getElementById('cpSurah');
-    SURAHS.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s[0];
-      opt.textContent = `${s[0]}. ${s[2]} — ${s[1]}`;
-      sel.appendChild(opt);
-    });
-    // Pre-select current position
-    const cur = pageToPos(currentAbsPage());
-    sel.value = cur.num;
-    updateCpAyatMax();
-    document.getElementById('cpAyat').value = cur.ayat;
-    updateCpPreview();
-  } else {
-    panel.style.display = 'none';
-    panel.innerHTML = '';
-    btn.textContent = '✏️ Set My Current Position';
-  }
-}
-
-function buildUpdatePanelHtml() {
-  return `
-    <div class="update-panel">
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <select class="form-input" id="cpSurah" onchange="updateCpAyatMax();updateCpPreview()" style="flex:2;padding-right:8px">
-          <option value="">— Select Surah —</option>
-        </select>
-        <input type="number" class="form-input" id="cpAyat" min="1" placeholder="Ayat"
-          oninput="updateCpPreview()" style="flex:1;min-width:72px">
-      </div>
-      <div id="cpPreview" class="recalc-note"></div>
-      <button class="btn-primary" style="margin-top:10px" onclick="saveCheckpoint()">
-        ✓ Save &amp; Recalculate Schedule
-      </button>
+function renderRecordForm() {
+  const container = document.getElementById('recordForm');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="record-form-row">
+      <select class="form-input" id="cpSurah" onchange="updateCpAyatMax();updateCpPreview()">
+        <option value="">— Select Surah —</option>
+      </select>
+      <input type="number" class="form-input" id="cpAyat" min="1" placeholder="Ayat"
+        oninput="updateCpPreview()">
     </div>`;
+  const sel = document.getElementById('cpSurah');
+  SURAHS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s[0];
+    opt.textContent = `${s[0]}. ${s[2]} — ${s[1]}`;
+    sel.appendChild(opt);
+  });
+  const cur = pageToPos(currentAbsPage());
+  sel.value = cur.num;
+  updateCpAyatMax();
+  document.getElementById('cpAyat').value = cur.ayat;
+  updateCpPreview();
 }
 
 function updateCpAyatMax() {
@@ -1468,8 +1400,9 @@ function updateCpPreview() {
   const sel  = document.getElementById('cpSurah');
   const inp  = document.getElementById('cpAyat');
   const prev = document.getElementById('cpPreview');
+  if (!prev) return;
   const sNum = parseInt(sel.value);
-  if (!sNum) { prev.textContent = ''; return; }
+  if (!sNum) { prev.style.display = 'none'; return; }
   const s    = SURAHS.find(x => x[0] === sNum);
   const ayat = Math.max(1, Math.min(parseInt(inp.value) || 1, s[3]));
   const pg   = surahAyatToPage(sNum, ayat);
@@ -1480,10 +1413,10 @@ function updateCpPreview() {
   const pgLeft   = TOTAL_PAGES - pg + 1;
   const newPPS   = pgLeft / daysLeft / 5;
 
+  prev.style.display = '';
   prev.innerHTML = `
-    New position: <strong>${s[2]} (${s[1]}) : ${ayat}</strong> — page ${pg}<br>
-    Pages left: <strong>${pgLeft}</strong> · Days left: <strong>${daysLeft}</strong><br>
-    New target: <strong>${newPPS.toFixed(1)} pages/session</strong> (${(newPPS * 5).toFixed(1)} pages/day)`;
+    <strong>${s[2]} (${s[1]}) : ${ayat}</strong> · page ${pg}<br>
+    ${pgLeft} pages left · new pace: <strong>${newPPS.toFixed(1)} pages/session</strong>`;
 }
 
 function saveCheckpoint() {
@@ -1502,7 +1435,6 @@ function saveCheckpoint() {
     label: `${s[2]} (${s[1]}) : ${ayat}`
   });
   saveState();
-  _updatePanelOpen = false;
   renderDashboard();
 }
 
@@ -1533,22 +1465,29 @@ function newKhatam() {
 // PROGRESS
 // ════════════════════════════════════════════════════════════════
 function renderProgress() {
-  const read   = pagesRead();
-  const pct    = targetPct();
-  const oPct   = overallPct();
-  const dayN   = dayNumber();
-  const done   = totalDoneSessions();
+  const read  = pagesRead();
+  const pct   = targetPct();
+  const oPct  = overallPct();
+  const dayN  = dayNumber();
+  const cps   = S.checkpoints || [];
 
-  // Build per-day data
-  const start = new Date(S.startDate);
+  // Build chart data: target per day vs pages implied by checkpoints
+  const start  = new Date(S.startDate);
   const labels = [], actual = [], target = [];
   for (let d = 0; d < Math.min(dayN, S.targetDays); d++) {
     const dt  = new Date(start);
     dt.setDate(start.getDate() + d);
     const k   = dt.toISOString().split('T')[0];
-    const cnt = S.completed[k] ? S.completed[k].filter(Boolean).length : 0;
+    const dayCps = cps.filter(c => c.date === k);
+    let dayPages = 0;
+    if (dayCps.length > 0) {
+      const latest  = dayCps[dayCps.length - 1];
+      const prevCps = cps.filter(c => c.date < k);
+      const prevPg  = prevCps.length > 0 ? prevCps[prevCps.length - 1].page : S.startPage;
+      dayPages = Math.max(0, latest.page - prevPg);
+    }
     labels.push('D' + (d + 1));
-    actual.push(Math.round(cnt * S.pagesPerSession));
+    actual.push(dayPages);
     target.push(Math.round(S.dailyPages));
   }
 
@@ -1559,7 +1498,7 @@ function renderProgress() {
         <div class="stat-box"><div class="stat-val">${pct}%</div><div class="stat-lbl">Khatam Done</div></div>
         <div class="stat-box"><div class="stat-val">${oPct}%</div><div class="stat-lbl">Quran Overall</div></div>
         <div class="stat-box"><div class="stat-val">${read}</div><div class="stat-lbl">Pages Read</div></div>
-        <div class="stat-box"><div class="stat-val">${done}</div><div class="stat-lbl">Sessions Done</div></div>
+        <div class="stat-box"><div class="stat-val">${cps.length}</div><div class="stat-lbl">Updates Saved</div></div>
         <div class="stat-box"><div class="stat-val">${currentAbsPage()}</div><div class="stat-lbl">Current Page</div></div>
         <div class="stat-box"><div class="stat-val">${dayN}</div><div class="stat-lbl">Days Active</div></div>
       </div>
@@ -1570,14 +1509,14 @@ function renderProgress() {
       <div class="chart-wrap"><canvas id="progressChart"></canvas></div>
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#d4edd9"></div>Target</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#1a6b3e"></div>Actual</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#1a6b3e"></div>Recorded</div>
       </div>
     </div>
 
     <div class="card">
-      <p class="card-title">📅 Session History</p>
+      <p class="card-title">📅 Progress History</p>
       <div style="max-height:320px;overflow-y:auto">
-        ${buildHistory(start, dayN)}
+        ${buildHistory()}
       </div>
     </div>
   `;
@@ -1585,27 +1524,25 @@ function renderProgress() {
   drawChart(labels, actual, target);
 }
 
-function buildHistory(start, dayN) {
-  let html = '';
-  for (let d = Math.min(dayN, S.targetDays) - 1; d >= 0; d--) {
-    const dt  = new Date(start);
-    dt.setDate(start.getDate() + d);
-    const k   = dt.toISOString().split('T')[0];
-    const arr = S.completed[k] || [false,false,false,false,false];
-    const cnt = arr.filter(Boolean).length;
-    const pg  = Math.round(cnt * S.pagesPerSession);
-    const dots= arr.map(v => `<div class="dot${v?' filled':''}"></div>`).join('');
-    html += `
+function buildHistory() {
+  const cps = [...(S.checkpoints || [])].reverse();
+  if (cps.length === 0) {
+    return '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No progress recorded yet.</p>';
+  }
+  return cps.map(cp => {
+    const pagesFromStart = Math.max(0, cp.page - S.startPage);
+    return `
       <div class="history-row">
-        <div><div class="history-day">Day ${d + 1}</div><div class="history-date">${fmtDate(dt)}</div></div>
+        <div>
+          <div class="history-day">${cp.date}</div>
+          <div class="history-date">${cp.label}</div>
+        </div>
         <div class="history-right">
-          <div class="history-pages">${pg} pages</div>
-          <div class="history-sessions">${cnt}/5 sessions</div>
-          <div class="dot-row">${dots}</div>
+          <div class="history-pages">Page ${cp.page}</div>
+          <div class="history-sessions">${pagesFromStart} pages read</div>
         </div>
       </div>`;
-  }
-  return html || '<p style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No history yet.</p>';
+  }).join('');
 }
 
 function drawChart(labels, actual, target) {
