@@ -34,14 +34,29 @@
     setTimeout(() => locStatus = '', 2000);
   }
 
-  function detectLoc() {
+  async function detectLoc() {
     if (!navigator.geolocation) { locStatus = 'Geolocation not supported.'; return; }
     locStatus = '📡 Detecting…';
     navigator.geolocation.getCurrentPosition(
-      p => {
+      async p => {
         locLat = p.coords.latitude.toFixed(4);
         locLng = p.coords.longitude.toFixed(4);
-        locStatus = `✓ Coords: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
+        locStatus = '🌍 Resolving city…';
+        try {
+          const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${locLat}&longitude=${locLng}&localityLanguage=en`;
+          const res  = await fetch(url);
+          const data = await res.json();
+          const city = data.city || data.locality || data.principalSubdivision || '';
+          const country = data.countryName || '';
+          if (city) {
+            locName   = country ? `${city}, ${country}` : city;
+            locStatus = `✓ ${locName}`;
+          } else {
+            locStatus = `✓ Coords: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
+          }
+        } catch (_) {
+          locStatus = `✓ Coords: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
+        }
       },
       () => { locStatus = 'Could not detect. Enter manually.'; }
     );
