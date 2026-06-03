@@ -1615,6 +1615,7 @@ function saveCheckpoint() {
   if (!S.checkpoints) S.checkpoints = [];
   S.checkpoints.push({
     date:  todayKey(),
+    time:  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     page:  pg,
     label: `${s[2]} (${s[1]}) : ${ayat}`
   });
@@ -1718,7 +1719,7 @@ function buildHistory() {
     return `
       <div class="history-row">
         <div>
-          <div class="history-day">${cp.date}</div>
+          <div class="history-day">${cp.date}${cp.time ? ' · ' + cp.time : ''}</div>
           <div class="history-date">${cp.label}</div>
         </div>
         <div class="history-right">
@@ -1851,7 +1852,7 @@ function renderSettings() {
         <p style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Position Updates</p>
         ${S.checkpoints.map(cp => `
           <div style="font-size:.78rem;padding:6px 0;border-bottom:1px solid var(--green-bg);display:flex;justify-content:space-between">
-            <span style="color:var(--text-muted)">${cp.date}</span>
+            <span style="color:var(--text-muted)">${cp.date}${cp.time ? ' · ' + cp.time : ''}</span>
             <span style="color:var(--green);font-weight:600">${cp.label}</span>
           </div>`).join('')}
       </div>` : ''}
