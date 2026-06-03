@@ -6,7 +6,10 @@
   let locName   = $S?.location?.name   || '';
   let locLat    = $S?.location?.lat    || '';
   let locLng    = $S?.location?.lng    || '';
-  let locMethod = $S?.location?.method || 'MWL';
+  // Backward compat: old installs stored string keys
+  const LEGACY_METHOD = { MWL: 3, ISNA: 2, Egypt: 5, Karachi: 1, Makkah: 4 };
+  const rawMethod = $S?.location?.method;
+  let locMethod = typeof rawMethod === 'number' ? rawMethod : (LEGACY_METHOD[rawMethod] ?? 3);
   let locStatus = '';
 
   $: pos = pageToPos($currentAbsPage);
@@ -93,11 +96,29 @@
     </div>
     <div class="loc-row">
       <select class="form-input" bind:value={locMethod}>
-        <option value="MWL">Muslim World League (MWL)</option>
-        <option value="ISNA">ISNA (North America)</option>
-        <option value="Karachi">Karachi / Hanafi</option>
-        <option value="Egypt">Egyptian Authority</option>
-        <option value="Makkah">Umm Al-Qura (Makkah)</option>
+        <option value={0}>Shia Ithna-Ansari</option>
+        <option value={1}>University of Islamic Sciences, Karachi</option>
+        <option value={2}>ISNA (North America)</option>
+        <option value={3}>Muslim World League (MWL)</option>
+        <option value={4}>Umm Al-Qura University, Makkah</option>
+        <option value={5}>Egyptian General Authority of Survey</option>
+        <option value={6}>Institute of Geophysics, Tehran</option>
+        <option value={7}>Gulf Region</option>
+        <option value={8}>Kuwait</option>
+        <option value={9}>Qatar</option>
+        <option value={10}>Majlis Ugama Islam Singapura (MUIS)</option>
+        <option value={11}>Union des Organisations Islamiques de France</option>
+        <option value={12}>Diyanet İşleri Başkanlığı, Turkey</option>
+        <option value={13}>Spiritual Administration of Muslims of Russia</option>
+        <option value={14}>Moonsighting Committee Worldwide</option>
+        <option value={15}>Dubai (experimental)</option>
+        <option value={16}>JAKIM, Malaysia</option>
+        <option value={17}>Tunisia</option>
+        <option value={18}>Algeria</option>
+        <option value={19}>KEMENAG, Indonesia</option>
+        <option value={20}>Morocco</option>
+        <option value={21}>Comunidade Islamica de Lisboa</option>
+        <option value={22}>Ministry of Awqaf, Jordan</option>
       </select>
     </div>
     <button class="btn-primary" style="width:100%" on:click={saveLocation}>✓ Save Location</button>
