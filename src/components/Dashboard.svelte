@@ -13,6 +13,7 @@
   let cpSurahNum = 0;
   let cpAyat = 1;
   let cpMaxAyat = 286;
+  let saveMsg = '';
 
   // Reactive computations from store
   $: st = $effectiveState;
@@ -40,7 +41,6 @@
   $: curPray = currentPrayerIdx();
   $: lastCp = ($S.checkpoints || []).slice(-1)[0] || null;
   $: curPos = pageToPos(absPage);
-  $: cpMaxAyat = cpSurahNum ? (SURAHS.find(s => s[0] === cpSurahNum)?.[3] || 286) : 286;
   $: isComplete = read >= totalKhatam;
 
   $: prayerCards = PRAYERS.map((name, i) => {
@@ -51,10 +51,9 @@
   });
 
   onMount(() => {
-    // Pre-fill record form with current position
     cpSurahNum = curPos.num;
     cpAyat = curPos.ayat;
-    // Fetch prayer times if location is set
+    cpMaxAyat = SURAHS.find(s => s[0] === cpSurahNum)?.[3] || 286;
     if ($S.location?.lat) {
       fetchPrayerTimes($S.location.lat, $S.location.lng, $S.location.method).then(t => {
         prayerTimes = t;
@@ -64,12 +63,18 @@
 
   function handleSurahChange() {
     const s = SURAHS.find(x => x[0] === cpSurahNum);
-    if (s) { cpMaxAyat = s[3]; if (cpAyat > cpMaxAyat) cpAyat = cpMaxAyat; }
+    if (s) {
+      cpMaxAyat = s[3];
+      if (cpAyat > cpMaxAyat) cpAyat = cpMaxAyat;
+    }
   }
 
   function handleSave() {
     if (!cpSurahNum) { alert('Please select a surah.'); return; }
-    saveCheckpoint(cpSurahNum, Math.max(1, Math.min(parseInt(cpAyat) || 1, cpMaxAyat)));
+    const ayat = Math.max(1, Math.min(parseInt(cpAyat) || 1, cpMaxAyat));
+    saveCheckpoint(cpSurahNum, ayat);
+    saveMsg = '✓ Saved!';
+    setTimeout(() => saveMsg = '', 2000);
   }
 
   function newKhatam() {
@@ -139,7 +144,8 @@
       </select>
       <input type="number" class="form-input" bind:value={cpAyat} min="1" max={cpMaxAyat} placeholder="Ayat (1–{cpMaxAyat})" style="flex:1;min-width:72px">
     </div>
-    <button class="btn-primary record-btn" on:click={handleSave}>✓ Save &amp; Update Schedule</button>
+    <button class="btn-primary record-btn" on:click={handleSave}>+ Add Progress</button>
+    {#if saveMsg}<div style="font-size:.78rem;color:var(--green);margin-top:8px;text-align:center">{saveMsg}</div>{/if}
   </div>
 
   <!-- Progress ring + stats -->
