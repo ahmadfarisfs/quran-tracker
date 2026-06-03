@@ -1,5 +1,5 @@
 <script>
-  import { onMount, afterUpdate, tick } from 'svelte';
+  import { onMount, afterUpdate } from 'svelte';
   import { S, currentAbsPage } from '../lib/store.js';
   import { TOTAL_PAGES } from '../lib/quranData.js';
 
@@ -107,12 +107,10 @@
   }
 
   onMount(() => {
-    tick().then(drawChart);
+    requestAnimationFrame(drawChart);
   });
 
-  afterUpdate(() => {
-    tick().then(drawChart);
-  });
+  afterUpdate(drawChart);
 
   $: reversedCps = [...cps].reverse();
 </script>
