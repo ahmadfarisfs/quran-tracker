@@ -1801,6 +1801,40 @@ function drawChart(labels, actual, target) {
 // ════════════════════════════════════════════════════════════════
 function renderSettings() {
   const pos = pageToPos(currentAbsPage());
+  const loc = S.location || {};
+  const locationCard = `
+  <div class="card">
+    <p class="card-title">📍 Prayer Times Location</p>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">
+      Used to calculate accurate prayer times for your location.
+    </p>
+    <div class="loc-row">
+      <input type="text" class="form-input" id="locName" placeholder="City name (e.g. Kuala Lumpur)"
+        value="${loc.name || ''}" style="flex:2">
+      <button class="btn-secondary" onclick="detectLocation()" style="white-space:nowrap;padding:0 14px">
+        📡 Auto-detect
+      </button>
+    </div>
+    <div class="loc-row">
+      <input type="number" class="form-input" id="locLat" placeholder="Latitude" step="0.0001"
+        value="${loc.lat || ''}" style="flex:1">
+      <input type="number" class="form-input" id="locLng" placeholder="Longitude" step="0.0001"
+        value="${loc.lng || ''}" style="flex:1">
+    </div>
+    <div class="loc-row">
+      <select class="form-input" id="locMethod">
+        <option value="MWL"     ${(loc.method||'MWL')==='MWL'     ?'selected':''}>Muslim World League (MWL)</option>
+        <option value="ISNA"    ${loc.method==='ISNA'    ?'selected':''}>ISNA (North America)</option>
+        <option value="Karachi" ${loc.method==='Karachi' ?'selected':''}>Karachi / Hanafi</option>
+        <option value="Egypt"   ${loc.method==='Egypt'   ?'selected':''}>Egyptian Authority</option>
+        <option value="Makkah"  ${loc.method==='Makkah'  ?'selected':''}>Umm Al-Qura (Makkah)</option>
+      </select>
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="saveLocation()">
+      ✓ Save Location
+    </button>
+    <div id="locStatus" style="font-size:.78rem;color:var(--green);margin-top:8px;min-height:18px"></div>
+  </div>`;
   document.getElementById('settingsContent').innerHTML = `
     <div class="card">
       <p class="card-title">⚙️ Your Plan</p>
@@ -1831,6 +1865,35 @@ function renderSettings() {
       <button class="btn-danger" onclick="resetAll()">🗑️ Reset All Progress</button>
     </div>
   `;
+}
+
+function saveLocation() {
+  const name = document.getElementById('locName').value.trim();
+  const lat  = parseFloat(document.getElementById('locLat').value);
+  const lng  = parseFloat(document.getElementById('locLng').value);
+  const method = document.getElementById('locMethod').value;
+  if (!name || isNaN(lat) || isNaN(lng)) {
+    document.getElementById('locStatus').textContent = 'Please fill in all fields.';
+    return;
+  }
+  S.location = { name, lat, lng, method };
+  saveState();
+  document.getElementById('locStatus').textContent = '✓ Location saved!';
+  setTimeout(() => { const el = document.getElementById('locStatus'); if (el) el.textContent = ''; }, 2000);
+}
+
+function detectLocation() {
+  const status = document.getElementById('locStatus');
+  if (!navigator.geolocation) { status.textContent = 'Geolocation not supported.'; return; }
+  status.textContent = '📡 Detecting…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('locLat').value = pos.coords.latitude.toFixed(4);
+      document.getElementById('locLng').value = pos.coords.longitude.toFixed(4);
+      status.textContent = `✓ Coords: ${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
+    },
+    err => { status.textContent = 'Could not detect location. Enter manually.'; }
+  );
 }
 
 function resetAll() {
