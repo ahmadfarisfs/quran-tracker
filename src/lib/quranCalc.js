@@ -8,6 +8,39 @@ export function pageToPos(pg) {
   return { num, ar: s[1], en: s[2], ayat };
 }
 
+function exactPos(surahNum, ayat) {
+  const s = SURAHS.find(x => x[0] === Number(surahNum));
+  const a = Number(ayat);
+  if (!s || !Number.isInteger(a) || a < 1 || a > s[3]) return null;
+  return { num: s[0], ar: s[1], en: s[2], ayat: a };
+}
+
+// Return the exact saved reading position. Pages are only an approximation, so
+// converting a saved ayah to a page and back can move the displayed ayah
+// backwards. The label fallback keeps bookmarks made by older app versions
+// accurate after an upgrade.
+export function stateToCurrentPos(state) {
+  if (!state) return pageToPos(1);
+
+  const checkpoints = state.checkpoints || [];
+  const last = checkpoints[checkpoints.length - 1];
+  if (last) {
+    const saved = exactPos(last.surahNum, last.ayat);
+    if (saved) return saved;
+
+    const match = String(last.label || '').match(/^(.*)\s:\s(\d+)$/);
+    if (match) {
+      const s = SURAHS.find(x => `${x[2]} (${x[1]})` === match[1]);
+      const legacy = exactPos(s?.[0], Number(match[2]));
+      if (legacy) return legacy;
+    }
+
+    return pageToPos(last.page);
+  }
+
+  return exactPos(state.startSurahNum, state.startAyat) || pageToPos(state.startPage);
+}
+
 // Return the last surah:ayat on page pg.
 export function lastAyatOnPage(pg) {
   pg = Math.min(TOTAL_PAGES, Math.max(1, Math.floor(pg)));

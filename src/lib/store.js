@@ -1,6 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
 import { TOTAL_PAGES, SURAHS } from './quranData.js';
-import { surahAyatToPage } from './quranCalc.js';
+import { stateToCurrentPos, surahAyatToPage } from './quranCalc.js';
 import { todayKey, daysBetween } from './utils.js';
 
 const STORAGE_KEY = 'quranTracker';
@@ -28,6 +28,9 @@ export const currentAbsPage = derived(S, $S => {
   const cps = $S.checkpoints || [];
   return cps.length > 0 ? cps[cps.length - 1].page : $S.startPage;
 });
+
+// Keep the exact bookmark separate from its approximate Mushaf page.
+export const currentPosition = derived(S, $S => stateToCurrentPos($S));
 
 export const effectiveState = derived(S, $S => {
   if (!$S) return { basePage: 1, pps: 1, baseDate: todayKey() };
@@ -59,6 +62,8 @@ export function saveCheckpoint(surahNum, ayat) {
         date:  todayKey(),
         time:  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         page:  pg,
+        surahNum,
+        ayat,
         label: `${sData[2]} (${sData[1]}) : ${ayat}`
       }
     ]

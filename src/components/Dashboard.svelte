@@ -1,8 +1,8 @@
 <script>
   import { onMount, createEventDispatcher } from 'svelte';
-  import { S, currentAbsPage, effectiveState, saveCheckpoint, getTargetEndDate } from '../lib/store.js';
+  import { S, currentAbsPage, currentPosition, effectiveState, saveCheckpoint, getTargetEndDate } from '../lib/store.js';
   import { TOTAL_PAGES, SURAHS, PRAYERS, PRAYERS_AR, PRAYER_ICO } from '../lib/quranData.js';
-  import { pageToPos, rangeLabel } from '../lib/quranCalc.js';
+  import { rangeLabel } from '../lib/quranCalc.js';
   import { fetchPrayerTimes } from '../lib/prayerTimes.js';
   import { todayKey, daysBetween, fmtDate, currentPrayerIdx, fmtPT } from '../lib/utils.js';
 
@@ -40,7 +40,7 @@
   $: ringOffset = C - (oPct / 100) * C;
   $: curPray = currentPrayerIdx();
   $: lastCp = ($S.checkpoints || []).slice(-1)[0] || null;
-  $: curPos = pageToPos(absPage);
+  $: curPos = $currentPosition;
   $: isComplete = read >= totalKhatam;
 
   $: prayerCards = PRAYERS.map((name, i) => {

@@ -1,7 +1,5 @@
 <script>
-  import { S, getTargetEndDate } from '../lib/store.js';
-  import { pageToPos } from '../lib/quranCalc.js';
-  import { currentAbsPage } from '../lib/store.js';
+  import { S, currentPosition, getTargetEndDate } from '../lib/store.js';
 
   let locName   = $S?.location?.name   || '';
   let locLat    = $S?.location?.lat    || '';
@@ -12,7 +10,7 @@
   let locMethod = typeof rawMethod === 'number' ? rawMethod : (LEGACY_METHOD[rawMethod] ?? 3);
   let locStatus = '';
 
-  $: pos = pageToPos($currentAbsPage);
+  $: pos = $currentPosition;
   $: effPPS = (() => {
     if (!$S) return 0;
     const cps = $S.checkpoints || [];
