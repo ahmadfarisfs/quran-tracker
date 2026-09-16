@@ -1,4 +1,4 @@
-const CACHE = 'quran-tracker-v4';
+const CACHE = 'quran-tracker-v5';
 
 self.addEventListener('install', e => {
   e.waitUntil(

@@ -15,30 +15,48 @@ function exactPos(surahNum, ayat) {
   return { num: s[0], ar: s[1], en: s[2], ayat: a };
 }
 
-// Return the exact saved reading position. Pages are only an approximation, so
-// converting a saved ayah to a page and back can move the displayed ayah
-// backwards. The label fallback keeps bookmarks made by older app versions
-// accurate after an upgrade.
+// A page contains multiple ayat: keep the exact bookmark even with exact pages.
+// The label fallback supports bookmarks made by older app versions.
+export function checkpointToPos(checkpoint) {
+  const saved = exactPos(checkpoint.surahNum, checkpoint.ayat);
+  if (saved) return saved;
+  const match = String(checkpoint.label || '').match(/^(.*)\s:\s(\d+)$/);
+  if (!match) return null;
+  const s = SURAHS.find(x => `${x[2]} (${x[1]})` === match[1]);
+  return exactPos(s?.[0], Number(match[2]));
+}
+
 export function stateToCurrentPos(state) {
   if (!state) return pageToPos(1);
 
   const checkpoints = state.checkpoints || [];
   const last = checkpoints[checkpoints.length - 1];
   if (last) {
-    const saved = exactPos(last.surahNum, last.ayat);
-    if (saved) return saved;
-
-    const match = String(last.label || '').match(/^(.*)\s:\s(\d+)$/);
-    if (match) {
-      const s = SURAHS.find(x => `${x[2]} (${x[1]})` === match[1]);
-      const legacy = exactPos(s?.[0], Number(match[2]));
-      if (legacy) return legacy;
-    }
-
-    return pageToPos(last.page);
+    return checkpointToPos(last) || pageToPos(last.page);
   }
 
   return exactPos(state.startSurahNum, state.startAyat) || pageToPos(state.startPage);
+}
+
+// Repair stored estimates using the original exact positions. Preserve records
+// without an exact position rather than guessing what the reader entered.
+export function migratePageData(state) {
+  if (!state || state.pageDataVersion === 'tanzil-medina-1.0') return state;
+  const start = exactPos(state.startSurahNum, state.startAyat);
+  const startPage = start ? surahAyatToPage(start.num, start.ayat) : state.startPage;
+  const dailyPages = (TOTAL_PAGES - startPage + 1) / state.targetDays;
+  return {
+    ...state,
+    pageDataVersion: 'tanzil-medina-1.0',
+    startPage,
+    dailyPages,
+    pagesPerSession: dailyPages / 5,
+    checkpoints: (state.checkpoints || []).map(cp => {
+      const pos = checkpointToPos(cp);
+      return pos ? { ...cp, surahNum: pos.num, ayat: pos.ayat,
+        page: surahAyatToPage(pos.num, pos.ayat) } : cp;
+    })
+  };
 }
 
 // Return the last surah:ayat on page pg.
@@ -62,7 +80,7 @@ export function lastAyatOnPage(pg) {
 
 export function rangeLabel(startPg, endPg) {
   startPg = Math.max(1, startPg);
-  endPg   = Math.min(TOTAL_PAGES, endPg);
+  endPg   = Math.min(TOTAL_PAGES + 1, endPg);
   if (startPg > TOTAL_PAGES) return null;
   // Snap to integer page boundaries; subtract tiny epsilon so exact integer epg
   // is treated as the end of the previous page, not the start of a new one.
@@ -79,7 +97,7 @@ export function rangeLabel(startPg, endPg) {
   };
 }
 
-// Convert surah number + ayat → approximate page number
+// Look up the exact Medina Mushaf page containing this surah and ayah.
 export function surahAyatToPage(surahNum, ayat) {
   // Find the last page whose first ayah is at or before surahNum:ayat
   for (let pg = TOTAL_PAGES; pg >= 1; pg--) {

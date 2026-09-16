@@ -120,28 +120,8 @@ export const SURAHS = [
   [114,"الناس","An-Nas",6,604]
 ];
 
-// PAGE_MAP[i] = [surahNum, firstAyatOnPage] for page (i+1), 0-indexed.
-// Each surah's ayat are distributed proportionally across its page range.
-// When multiple surahs share a page, the earliest surah on that page wins.
-export const PAGE_MAP = (() => {
-  const map = new Array(TOTAL_PAGES);
-  for (let si = 0; si < SURAHS.length; si++) {
-    const s = SURAHS[si];
-    const startPg = s[4];
-    let nextPg = TOTAL_PAGES + 1;
-    for (let j = si + 1; j < SURAHS.length; j++) {
-      if (SURAHS[j][4] > startPg) { nextPg = SURAHS[j][4]; break; }
-    }
-    const numPgs = nextPg - startPg;
-    for (let pg = startPg; pg < nextPg; pg++) {
-      if (map[pg - 1]) continue; // first surah on a shared page wins
-      const pgInSurah = pg - startPg;
-      const ayat = Math.max(1, Math.min(s[3], Math.floor((pgInSurah / numPgs) * s[3]) + 1));
-      map[pg - 1] = [s[0], ayat];
-    }
-  }
-  return map;
-})();
+// PAGE_MAP[i] = [surahNum, firstAyatOnPage] for page i + 1.
+export { PAGE_MAP } from './quranPages.js';
 
 export const PRAYERS    = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
 export const PRAYERS_AR = ['الفجر','الظهر','العصر','المغرب','العشاء'];

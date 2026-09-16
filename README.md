@@ -96,7 +96,11 @@ To enable GitHub Pages in your own fork:
 
 ## Data
 
-Surah page positions are based on the standard **Madinah Mushaf (Uthmani)** — 604 pages, 114 surahs. Ayat-to-page mapping uses proportional interpolation within each surah's page range, which gives a close approximation for schedule purposes.
+Page lookups use the exact 604-page **Medina Mushaf** boundaries from [Tanzil Quran metadata v1.0](https://tanzil.net/docs/quran_metadata), bundled in `src/lib/quranPages.js` for offline use. No interpolation or network request is used for page calculations. Bookmarks retain the exact Surah and Ayah because each page contains multiple ayat.
+
+Source: [quran-data.xml](https://tanzil.net/res/text/metadata/quran-data.xml), copyright (C) 2008–2009 Tanzil.info, licensed `cc-by` as declared in the source. The bundled table extracts only the `sura` and `aya` attributes of all 604 `page` entries, ordered by `index`. Downloaded source SHA-256: `8867c1d88191472adec9db694b3cd9f135b1a2ef580574d32cf888dcb22c5c7a`.
+
+Existing saved pages are recalculated on load wherever an exact Surah/Ayah can be recovered. Records containing only a page number are preserved because their original ayah is unknown. Page numbers follow this specific Mushaf layout; other printed editions may paginate differently.
 
 ---
 

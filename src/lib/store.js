@@ -1,13 +1,13 @@
 import { writable, derived, get } from 'svelte/store';
 import { TOTAL_PAGES, SURAHS } from './quranData.js';
-import { stateToCurrentPos, surahAyatToPage } from './quranCalc.js';
+import { migratePageData, stateToCurrentPos, surahAyatToPage } from './quranCalc.js';
 import { todayKey, daysBetween } from './utils.js';
 
 const STORAGE_KEY = 'quranTracker';
 
 function createStore() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  const { subscribe, set, update } = writable(raw ? JSON.parse(raw) : null);
+  const { subscribe, set, update } = writable(raw ? migratePageData(JSON.parse(raw)) : null);
 
   subscribe(val => {
     if (val !== null) localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
@@ -29,7 +29,7 @@ export const currentAbsPage = derived(S, $S => {
   return cps.length > 0 ? cps[cps.length - 1].page : $S.startPage;
 });
 
-// Keep the exact bookmark separate from its approximate Mushaf page.
+// Keep the exact bookmark as well as its Mushaf page.
 export const currentPosition = derived(S, $S => stateToCurrentPos($S));
 
 export const effectiveState = derived(S, $S => {
