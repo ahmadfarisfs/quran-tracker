@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#1a6b3e"/>
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <defs>
+    <radialGradient id="bg" cx="40%" cy="30%">
+      <stop offset="0%" stop-color="#2d7a4f"/>
+      <stop offset="100%" stop-color="#0d4f2e"/>
+    </radialGradient>
+  </defs>
+  <!-- Crescent Moon -->
+  <path d="M310 140 A100 100 0 1 0 310 372 A70 70 0 1 1 310 140Z" fill="#e8c97a"/>
+  <!-- Star -->
+  <polygon points="348,200 356,224 382,224 361,239 369,263 348,248 327,263 335,239 314,224 340,224" fill="#e8c97a"/>
+  <!-- Open book lines -->
+  <rect x="160" y="390" width="192" height="8" rx="4" fill="rgba(232,201,122,0.5)"/>
+  <rect x="180" y="408" width="152" height="6" rx="3" fill="rgba(232,201,122,0.3)"/>
+</svg>
