@@ -15,6 +15,10 @@ function exactPos(surahNum, ayat) {
   return { num: s[0], ar: s[1], en: s[2], ayat: a };
 }
 
+export function isQuranComplete(position) {
+  return position?.num === 114 && position?.ayat === 6;
+}
+
 // A page contains multiple ayat: keep the exact bookmark even with exact pages.
 // The label fallback supports bookmarks made by older app versions.
 export function checkpointToPos(checkpoint) {

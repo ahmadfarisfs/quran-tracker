@@ -5,6 +5,7 @@
   import Dashboard from './components/Dashboard.svelte';
   import Progress from './components/Progress.svelte';
   import Settings from './components/Settings.svelte';
+  import Icon from './components/Icon.svelte';
 
   let activeTab = 'dashboard';
   let showInstall = false;
@@ -32,18 +33,23 @@
     showInstall = false;
     localStorage.setItem('pwaInstallDismissed', '1');
   }
+
+  function navigate(tab) {
+    activeTab = tab;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
 </script>
 
 {#if showInstall}
   <div class="install-bar show">
-    <span>📲 Install Quran Tracker to your home screen</span>
+    <span><Icon name="download" size={17}/> Install Quran Tracker to your home screen</span>
     <button class="install-btn" on:click={install}>Install</button>
-    <button class="dismiss-btn" on:click={dismissInstall}>✕</button>
+    <button class="dismiss-btn" aria-label="Dismiss install prompt" on:click={dismissInstall}><Icon name="x" size={16}/></button>
   </div>
 {/if}
 
-<header class="header">
-  <div style="font-size:2.2rem;margin-bottom:6px;animation:floatAnim 3s ease-in-out infinite">🌙</div>
+<header class="header" class:compact={$S}>
+  <div class="header-icon"><Icon name="moon" size={38} strokeWidth={1.5}/></div>
   <h1 class="header-title">Quran Khatam Tracker</h1>
   <p class="header-subtitle">متابعة ختم القرآن الكريم</p>
 </header>
@@ -53,14 +59,14 @@
     <Setup />
   </main>
 {:else}
-  <nav class="nav visible">
-    <button class="nav-btn {activeTab==='dashboard'?'active':''}" on:click={() => activeTab='dashboard'}>📖 Today</button>
-    <button class="nav-btn {activeTab==='progress' ?'active':''}" on:click={() => activeTab='progress'}>📊 Progress</button>
-    <button class="nav-btn {activeTab==='settings' ?'active':''}" on:click={() => activeTab='settings'}>⚙️ Settings</button>
+  <nav class="nav visible" aria-label="Primary navigation">
+    <button class="nav-btn {activeTab==='dashboard'?'active':''}" aria-current={activeTab === 'dashboard' ? 'page' : undefined} on:click={() => navigate('dashboard')}><Icon name="book" size={17}/> Today</button>
+    <button class="nav-btn {activeTab==='progress' ?'active':''}" aria-current={activeTab === 'progress' ? 'page' : undefined} on:click={() => navigate('progress')}><Icon name="chart" size={17}/> Progress</button>
+    <button class="nav-btn {activeTab==='settings' ?'active':''}" aria-current={activeTab === 'settings' ? 'page' : undefined} on:click={() => navigate('settings')}><Icon name="settings" size={17}/> Settings</button>
   </nav>
   <main class="main">
     {#if activeTab === 'dashboard'}
-      <Dashboard on:navigate={e => activeTab = e.detail} />
+      <Dashboard on:navigate={e => navigate(e.detail)} />
     {:else if activeTab === 'progress'}
       <Progress />
     {:else if activeTab === 'settings'}

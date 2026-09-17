@@ -1,6 +1,6 @@
 # Quran Khatam Tracker — متابعة ختم القرآن الكريم
 
-A lightweight, installable Progressive Web App (PWA) to help you complete (*khatam*) the Holy Quran on a personalised schedule. No account or internet needed after the first load — everything runs in your browser.
+A lightweight, installable Progressive Web App (PWA) to help you complete (*khatam*) the Holy Quran on a personalised schedule. No account is required, and the core tracker works offline after the first load.
 
 **Live app → [https://ahmadfarisfs.github.io/quran-tracker/](https://ahmadfarisfs.github.io/quran-tracker/)**
 
@@ -14,17 +14,18 @@ A lightweight, installable Progressive Web App (PWA) to help you complete (*khat
 - **Optional starting position** — choose any Surah and Ayat if you're continuing a previous reading, rather than starting from Al-Fatihah
 
 ### Daily Schedule
-- Reading is divided evenly across **5 daily prayer sessions**: Fajr, Dhuhr, Asr, Maghrib, Isha
+- Each day's reading target is divided into **5 optional milestones** aligned with Fajr, Dhuhr, Asr, Maghrib, and Isha
 - Each session shows the exact **Surah name (Arabic + English) and Ayat range** (start → end)
 - The **current prayer session** is auto-highlighted based on the time of day
 - Tap a session card to **mark it complete** — progress is saved instantly
+- Read at any time: the prayer milestones are guidance, not required reading windows
+- If you stop between milestones, save the exact **Surah and Ayah** as your bookmark
 
 ### Progress Tracking
-- **Circular progress ring** showing percentage of this khatam complete
-- **Stats grid**: pages read, pages left, days left, sessions completed
-- **Bar chart** comparing your actual daily reading against the target (Canvas-based, fully offline)
+- **Progress bars and stats** showing pages read, pages left, days left, and exact current position
+- **Recent bar chart** comparing recorded daily reading against the target active when it was saved
 - **Session history** with a dot indicator for each of the 5 prayers per day
-- **Behind-schedule warning** if you fall behind, so you can catch up
+- **Recovery planning** when a target date has passed, without unrealistic one-day catch-up targets
 
 ### Technical
 - **PWA** — install to your home screen on Android or iOS; works fully offline after first load
@@ -48,25 +49,23 @@ A lightweight, installable Progressive Web App (PWA) to help you complete (*khat
    - Choose **"In N days"** or **"By a date"** for your target
    - Optionally select a **starting Surah and Ayat** if you've already read some
    - Set your start date and tap **بسم الله — Start My Journey**
-3. Each day, open the **Today** tab to see your 5 prayer sessions
-4. Tap each session card after you've read to mark it done
-5. Check the **Progress** tab for charts and history
+3. Each day, open the **Today** tab to see five suggested reading milestones
+4. Read whenever it suits you. Tap a reached milestone, or save your exact Surah and Ayah if you stop elsewhere
+5. If your target date passes, choose a realistic recovery period and continue from the same bookmark
+6. Check the **Progress** tab for recent reading, milestone completion, and position history
 
 ---
 
 ## Local Development
 
-No build step required — it's a plain HTML/CSS/JS app.
-
 ```bash
 git clone https://github.com/ahmadfarisfs/quran-tracker.git
 cd quran-tracker
-# Serve with any static server, e.g.:
-npx serve .
-# Then open http://localhost:3000
+npm ci
+npm run dev
 ```
 
-Service workers require HTTPS or `localhost` — the local server covers this.
+Open the local URL printed by Vite. Run `npm test` for the calculation tests and `npm run build` for a production build. Service workers require HTTPS or `localhost`.
 
 ---
 
@@ -83,8 +82,9 @@ To enable GitHub Pages in your own fork:
 
 | Layer | Detail |
 |-------|--------|
-| UI | Vanilla HTML + CSS (no framework) |
-| Logic | Vanilla JavaScript (ES6+) |
+| UI | Svelte 4 + CSS |
+| Build | Vite 5 |
+| Logic | JavaScript (ES modules) |
 | Fonts | [Amiri](https://fonts.google.com/specimen/Amiri) (Arabic), [Poppins](https://fonts.google.com/specimen/Poppins) (Latin) via Google Fonts |
 | Chart | Canvas 2D API (no external chart library) |
 | Offline | Service Worker + Cache API |

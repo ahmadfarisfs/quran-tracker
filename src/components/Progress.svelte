@@ -1,29 +1,31 @@
 <script>
   import { onMount, afterUpdate } from 'svelte';
-  import { S, currentAbsPage } from '../lib/store.js';
+  import { S, currentAbsPage, currentPosition } from '../lib/store.js';
   import { TOTAL_PAGES } from '../lib/quranData.js';
+  import { isQuranComplete } from '../lib/quranCalc.js';
+  import { checkpointPageChanges, daysBetween, startOfLocalDay, todayKey } from '../lib/utils.js';
+  import Icon from './Icon.svelte';
 
   let canvas;
 
   $: cps = $S.checkpoints || [];
   $: absPage = $currentAbsPage;
-  $: read = Math.max(0, absPage - $S.startPage);
+  $: pos = $currentPosition;
+  $: isComplete = isQuranComplete(pos);
   $: totalKhatam = TOTAL_PAGES - $S.startPage + 1;
+  $: read = isComplete ? totalKhatam : Math.max(0, absPage - $S.startPage);
   $: kPct = Math.min(100, Math.round((read / totalKhatam) * 100));
-  $: oPct = Math.min(100, Math.round((absPage / TOTAL_PAGES) * 100));
-  $: dayN = (() => {
-    const start = new Date($S.startDate); start.setHours(0,0,0,0);
-    const now = new Date(); now.setHours(0,0,0,0);
-    return Math.max(1, Math.floor((now - start) / 86400000) + 1);
-  })();
+  $: dayN = Math.max(1, daysBetween($S.startDate, todayKey()) + 1);
 
   $: chartData = (() => {
-    const start  = new Date($S.startDate);
+    const start  = startOfLocalDay($S.startDate);
     const labels = [], actual = [], target = [];
-    for (let d = 0; d < Math.min(dayN, $S.targetDays); d++) {
+    const lastDay = Math.min(dayN, $S.targetDays);
+    const firstDay = Math.max(0, lastDay - 14);
+    for (let d = firstDay; d < lastDay; d++) {
       const dt  = new Date(start);
       dt.setDate(start.getDate() + d);
-      const k   = dt.toISOString().split('T')[0];
+      const k   = todayKey(dt);
       const dayCps = cps.filter(c => c.date === k);
       let dayPages = 0;
       if (dayCps.length > 0) {
@@ -34,7 +36,7 @@
       }
       labels.push('D' + (d + 1));
       actual.push(dayPages);
-      target.push(Math.round($S.dailyPages));
+      target.push(Math.round(dayCps[dayCps.length - 1]?.dailyTarget ?? $S.dailyPages));
     }
     return { labels, actual, target };
   })();
@@ -112,26 +114,37 @@
 
   afterUpdate(drawChart);
 
-  $: reversedCps = [...cps].reverse();
+  $: historyEntries = checkpointPageChanges(cps, $S.startPage).reverse();
+  $: milestoneDays = [...new Set(cps.map(cp => cp.date))].sort().reverse().map(date => {
+    const entries = cps.filter(cp => cp.date === date);
+    const completed = new Set(entries.filter(cp => cp.prayerIndex !== undefined).map(cp => cp.prayerIndex));
+    return { date, completed, manualUpdates: entries.filter(cp => cp.source !== 'prayer').length };
+  });
 </script>
 
 <div class="card">
-  <p class="card-title">📊 Overall Stats</p>
-  <div class="stats-grid">
+  <p class="card-title"><Icon name="chart" size={15}/> Overall Stats</p>
+  <div class="stats-grid compact">
     <div class="stat-box"><div class="stat-val">{kPct}%</div><div class="stat-lbl">Khatam Done</div></div>
-    <div class="stat-box"><div class="stat-val">{oPct}%</div><div class="stat-lbl">Quran Overall</div></div>
     <div class="stat-box"><div class="stat-val">{read}</div><div class="stat-lbl">Pages Read</div></div>
     <div class="stat-box"><div class="stat-val">{cps.length}</div><div class="stat-lbl">Updates Saved</div></div>
     <div class="stat-box"><div class="stat-val">{absPage}</div><div class="stat-lbl">Current Page</div></div>
-    <div class="stat-box"><div class="stat-val">{dayN}</div><div class="stat-lbl">Days Active</div></div>
   </div>
 </div>
 
 <div class="card">
-  <p class="card-title">📈 Daily Pages Chart</p>
-  <div class="chart-wrap">
-    <canvas bind:this={canvas}></canvas>
+  <p class="card-title"><Icon name="chart" size={15}/> Recent Daily Reading</p>
+  <p class="section-subtitle">Last {chartData.labels.length} days · recorded pages compared with the plan active when saved.</p>
+  <div class="chart-wrap" role="img" aria-label="Bar chart of recorded and target pages for the last {chartData.labels.length} days">
+    <canvas bind:this={canvas} aria-hidden="true"></canvas>
   </div>
+  <details class="chart-data">
+    <summary>View daily values</summary>
+    <table>
+      <thead><tr><th>Day</th><th>Recorded</th><th>Target</th></tr></thead>
+      <tbody>{#each chartData.labels as label, i}<tr><th>{label}</th><td>{chartData.actual[i]}</td><td>{chartData.target[i]}</td></tr>{/each}</tbody>
+    </table>
+  </details>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:#d4edd9"></div>Target</div>
     <div class="legend-item"><div class="legend-dot" style="background:#1a6b3e"></div>Recorded</div>
@@ -139,13 +152,32 @@
 </div>
 
 <div class="card">
-  <p class="card-title">📅 Progress History</p>
+  <p class="card-title"><Icon name="target" size={15}/> Daily Milestones</p>
+  {#if milestoneDays.length === 0}
+    <p class="empty-copy">No reading updates yet.</p>
+  {:else}
+    <div class="milestone-history">
+      {#each milestoneDays as day}
+        <div class="milestone-history-row">
+          <div><strong>{day.date}</strong>{#if day.manualUpdates}<span>{day.manualUpdates} exact update{day.manualUpdates === 1 ? '' : 's'}</span>{/if}</div>
+          <div class="dot-row" aria-label={`${day.completed.size} of 5 suggested milestones reached`}>
+            {#each ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'] as prayer, i}
+              <span class="dot" class:filled={day.completed.has(i)} title={prayer}></span>
+            {/each}
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+<div class="card">
+  <p class="card-title"><Icon name="history" size={15}/> Position History</p>
   <div style="max-height:320px;overflow-y:auto">
-    {#if reversedCps.length === 0}
+    {#if historyEntries.length === 0}
       <p style="color:var(--text-muted);font-size:.85rem;padding:8px 0">No progress recorded yet.</p>
     {:else}
-      {#each reversedCps as cp}
-        {@const pagesFromStart = Math.max(0, cp.page - $S.startPage)}
+      {#each historyEntries as cp}
         <div class="history-row">
           <div>
             <div class="history-day">{cp.date}{cp.time ? ' · ' + cp.time : ''}</div>
@@ -153,7 +185,15 @@
           </div>
           <div class="history-right">
             <div class="history-pages">Page {cp.page}</div>
-            <div class="history-sessions">{pagesFromStart} pages read</div>
+            <div class="history-sessions">
+              {#if cp.pagesAdded > 0}
+                +{cp.pagesAdded} page{cp.pagesAdded === 1 ? '' : 's'} since previous
+              {:else if cp.positionChanged}
+                Advanced within this page
+              {:else}
+                No position change
+              {/if}
+            </div>
           </div>
         </div>
       {/each}

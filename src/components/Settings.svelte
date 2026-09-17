@@ -1,5 +1,7 @@
 <script>
-  import { S, currentPosition, getTargetEndDate } from '../lib/store.js';
+  import { S, currentPosition, effectiveState } from '../lib/store.js';
+  import { daysBetween } from '../lib/utils.js';
+  import Icon from './Icon.svelte';
 
   let locName   = $S?.location?.name   || '';
   let locLat    = $S?.location?.lat    || '';
@@ -11,16 +13,10 @@
   let locStatus = '';
 
   $: pos = $currentPosition;
-  $: effPPS = (() => {
-    if (!$S) return 0;
-    const cps = $S.checkpoints || [];
-    if (cps.length === 0) return $S.pagesPerSession;
-    const last = cps[cps.length - 1];
-    const today = new Date(); today.setHours(0,0,0,0);
-    const tgt = getTargetEndDate($S); tgt.setHours(0,0,0,0);
-    const daysLeft = Math.max(1, Math.ceil((tgt - today) / 86400000));
-    return (604 - last.page + 1) / daysLeft / 5;
-  })();
+  $: effPPS = $effectiveState.expired ? null : $effectiveState.pps;
+  $: currentPlanDays = $S?.planBaseDate && $S?.targetDate
+    ? Math.max(1, daysBetween($S.planBaseDate, $S.targetDate))
+    : $S?.targetDays;
 
   function saveLocation() {
     const name = locName.trim();
@@ -28,18 +24,18 @@
     const lng  = parseFloat(locLng);
     if (!name || isNaN(lat) || isNaN(lng)) { locStatus = 'Please fill in all fields.'; return; }
     S.update(s => ({ ...s, location: { name, lat, lng, method: locMethod } }));
-    locStatus = '✓ Location saved!';
+    locStatus = 'Location saved.';
     setTimeout(() => locStatus = '', 2000);
   }
 
   async function detectLoc() {
     if (!navigator.geolocation) { locStatus = 'Geolocation not supported.'; return; }
-    locStatus = '📡 Detecting…';
+    locStatus = 'Detecting location…';
     navigator.geolocation.getCurrentPosition(
       async p => {
         locLat = p.coords.latitude.toFixed(4);
         locLng = p.coords.longitude.toFixed(4);
-        locStatus = '🌍 Resolving city…';
+        locStatus = 'Resolving city…';
         try {
           const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${locLat}&longitude=${locLng}&localityLanguage=en`;
           const res  = await fetch(url);
@@ -48,12 +44,12 @@
           const country = data.countryName || '';
           if (city) {
             locName   = country ? `${city}, ${country}` : city;
-            locStatus = `✓ ${locName}`;
+            locStatus = locName;
           } else {
-            locStatus = `✓ Coords: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
+            locStatus = `Coordinates: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
           }
         } catch (_) {
-          locStatus = `✓ Coords: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
+          locStatus = `Coordinates: ${(+locLat).toFixed(2)}, ${(+locLng).toFixed(2)}`;
         }
       },
       () => { locStatus = 'Could not detect. Enter manually.'; }
@@ -69,46 +65,32 @@
 {#if $S}
   <!-- Your Plan -->
   <div class="card">
-    <p class="card-title">⚙️ Your Plan</p>
-    <div class="settings-row"><span class="settings-label">Target days</span><span class="settings-val">{$S.targetDays} days</span></div>
+    <p class="card-title"><Icon name="settings" size={15}/> Your Plan</p>
+    <div class="settings-row"><span class="settings-label">Current plan</span><span class="settings-val">{currentPlanDays} days{$S.planBaseDate ? ' · recovery' : ''}</span></div>
     <div class="settings-row"><span class="settings-label">Start date</span><span class="settings-val">{$S.startDate}</span></div>
     {#if $S.targetDate}
       <div class="settings-row"><span class="settings-label">Target finish</span><span class="settings-val">{$S.targetDate}</span></div>
     {/if}
     <div class="settings-row"><span class="settings-label">Starting position</span><span class="settings-val">{$S.startLabel || 'Al-Fatihah : 1'}</span></div>
-    <div class="settings-row"><span class="settings-label">Daily pages</span><span class="settings-val">{$S.dailyPages.toFixed(1)} pages</span></div>
-    <div class="settings-row"><span class="settings-label">Original pg/session</span><span class="settings-val">{$S.pagesPerSession.toFixed(1)} pages</span></div>
-    <div class="settings-row"><span class="settings-label">Current pg/session</span><span class="settings-val">{effPPS.toFixed(1)} pages</span></div>
+    <div class="settings-row"><span class="settings-label">Planned daily pace</span><span class="settings-val">{$S.dailyPages.toFixed(1)} pages</span></div>
+    <div class="settings-row"><span class="settings-label">Current milestone pace</span><span class="settings-val">{effPPS === null ? 'Replan on Today' : `${effPPS.toFixed(1)} pages`}</span></div>
     <div class="settings-row"><span class="settings-label">Current position</span><span class="settings-val">{pos.ar} : {pos.ayat}</span></div>
-    {#if ($S.checkpoints || []).length > 0}
-      <div style="margin-top:12px">
-        <p style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Position Updates</p>
-        {#each $S.checkpoints as cp}
-          <div style="font-size:.78rem;padding:6px 0;border-bottom:1px solid var(--green-bg);display:flex;justify-content:space-between">
-            <span style="color:var(--text-muted)">{cp.date}{cp.time ? ' · ' + cp.time : ''}</span>
-            <span style="color:var(--green);font-weight:600">{cp.label}</span>
-          </div>
-        {/each}
-      </div>
-    {/if}
   </div>
 
   <!-- Prayer Times Location -->
   <div class="card">
-    <p class="card-title">📍 Prayer Times Location</p>
-    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px">
-      Used to fetch accurate prayer times from AlAdhan.com.
-    </p>
+    <p class="card-title"><Icon name="map-pin" size={15}/> Prayer Times Location</p>
+    <p class="settings-help">Coordinates are stored on this device and sent to AlAdhan only to fetch prayer times. Auto-detect also uses BigDataCloud to identify the city.</p>
     <div class="loc-row">
-      <input type="text" class="form-input" bind:value={locName} placeholder="City name (e.g. Kuala Lumpur)" style="flex:2">
-      <button class="btn-secondary" on:click={detectLoc} style="white-space:nowrap;padding:0 14px">📡 Auto-detect</button>
+      <div class="field-wrap grow-2"><label for="location-name">City label</label><input id="location-name" type="text" class="form-input" bind:value={locName} placeholder="e.g. Bandung"></div>
+      <button class="btn-secondary icon-button" on:click={detectLoc} style="white-space:nowrap;padding:0 14px"><Icon name="locate" size={16}/> Auto-detect</button>
     </div>
     <div class="loc-row">
-      <input type="number" class="form-input" bind:value={locLat} placeholder="Latitude"  step="0.0001" style="flex:1">
-      <input type="number" class="form-input" bind:value={locLng} placeholder="Longitude" step="0.0001" style="flex:1">
+      <div class="field-wrap"><label for="location-lat">Latitude</label><input id="location-lat" type="number" class="form-input" bind:value={locLat} step="0.0001"></div>
+      <div class="field-wrap"><label for="location-lng">Longitude</label><input id="location-lng" type="number" class="form-input" bind:value={locLng} step="0.0001"></div>
     </div>
     <div class="loc-row">
-      <select class="form-input" bind:value={locMethod}>
+      <div class="field-wrap grow-1"><label for="calculation-method">Calculation method</label><select id="calculation-method" class="form-input" bind:value={locMethod}>
         <option value={0}>Shia Ithna-Ansari</option>
         <option value={1}>University of Islamic Sciences, Karachi</option>
         <option value={2}>ISNA (North America)</option>
@@ -132,18 +114,18 @@
         <option value={20}>Morocco</option>
         <option value={21}>Comunidade Islamica de Lisboa</option>
         <option value={22}>Ministry of Awqaf, Jordan</option>
-      </select>
+      </select></div>
     </div>
-    <button class="btn-primary" style="width:100%" on:click={saveLocation}>✓ Save Location</button>
+    <button class="btn-primary icon-button" style="width:100%" on:click={saveLocation}><Icon name="check" size={17}/> Save Location</button>
     {#if locStatus}
-      <div style="font-size:.78rem;color:var(--green);margin-top:8px">{locStatus}</div>
+      <div class="status-message" aria-live="polite">{locStatus}</div>
     {/if}
   </div>
 
   <!-- Danger Zone -->
   <div class="card">
-    <p class="card-title">⚠️ Danger Zone</p>
-    <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:14px">This will erase all your progress permanently.</p>
-    <button class="btn-danger" on:click={resetAll}>🗑️ Reset All Progress</button>
+    <p class="card-title"><Icon name="warning" size={15}/> Reset Tracker</p>
+    <p class="settings-help">Clears this Khatam plan and its progress history from this device.</p>
+    <button class="btn-danger icon-button" on:click={resetAll}><Icon name="trash" size={16}/> Reset All Progress</button>
   </div>
 {/if}

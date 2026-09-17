@@ -125,4 +125,4 @@ export { PAGE_MAP } from './quranPages.js';
 
 export const PRAYERS    = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
 export const PRAYERS_AR = ['الفجر','الظهر','العصر','المغرب','العشاء'];
-export const PRAYER_ICO = ['🌙','☀️','🌤️','🌅','⭐'];
+export const PRAYER_ICO = ['moon','sun','cloud-sun','sunset','star'];

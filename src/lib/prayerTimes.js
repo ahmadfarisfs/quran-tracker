@@ -1,10 +1,12 @@
+import { todayKey } from './utils.js';
+
 const CACHE_KEY = 'ptCache';
 
 // Backward compat: old installs stored string keys like 'MWL', 'ISNA', etc.
 const LEGACY_MAP = { MWL: 3, ISNA: 2, Egypt: 5, Karachi: 1, Makkah: 4 };
 
 export async function fetchPrayerTimes(lat, lng, method = 3) {
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = todayKey();
   const m = Number.isInteger(method) ? method : (LEGACY_MAP[method] ?? 3);
   const cacheId = `${lat}_${lng}_${m}_${dateStr}`;
   const cache   = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
