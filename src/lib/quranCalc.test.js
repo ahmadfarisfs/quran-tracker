@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { pageToPos, lastAyatOnPage, rangeLabel, isQuranComplete, migratePageData, stateToCurrentPos, surahAyatToPage } from './quranCalc.js';
+import { pageToPos, lastAyatOnPage, rangeLabel, isQuranComplete, quranProgressPercent, migratePageData, stateToCurrentPos, surahAyatToPage } from './quranCalc.js';
 import { PAGE_MAP, SURAHS } from './quranData.js';
 
 test('keeps the exact ayah instead of reconstructing it from the page start', () => {
@@ -109,4 +109,10 @@ test('keeps the exact initial position before the first bookmark', () => {
 test('recognizes completion at the final ayah even though it shares page 604', () => {
   assert.equal(isQuranComplete({ num: 114, ayat: 5 }), false);
   assert.equal(isQuranComplete({ num: 114, ayat: 6 }), true);
+});
+
+test('reports whole-Quran progress independently from the tracking start', () => {
+  assert.equal(quranProgressPercent(192), 32);
+  assert.equal(quranProgressPercent(604, false), 99);
+  assert.equal(quranProgressPercent(604, true), 100);
 });

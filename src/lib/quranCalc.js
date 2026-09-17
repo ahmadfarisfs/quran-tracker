@@ -19,6 +19,14 @@ export function isQuranComplete(position) {
   return position?.num === 114 && position?.ayat === 6;
 }
 
+// Measure the reader's location in the whole Quran, independently of when
+// tracking began. Reserve 100% for the exact final ayah.
+export function quranProgressPercent(page, complete = false) {
+  if (complete) return 100;
+  const safePage = Math.min(TOTAL_PAGES, Math.max(1, Number(page) || 1));
+  return Math.min(99, Math.round((safePage / TOTAL_PAGES) * 100));
+}
+
 // A page contains multiple ayat: keep the exact bookmark even with exact pages.
 // The label fallback supports bookmarks made by older app versions.
 export function checkpointToPos(checkpoint) {

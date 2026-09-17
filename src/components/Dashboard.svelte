@@ -5,7 +5,7 @@
     saveCheckpoint, getTargetEndDate, replanFromToday
   } from '../lib/store.js';
   import { TOTAL_PAGES, SURAHS, PRAYERS, PRAYERS_AR, PRAYER_ICO } from '../lib/quranData.js';
-  import { isQuranComplete, rangeLabel } from '../lib/quranCalc.js';
+  import { isQuranComplete, quranProgressPercent, rangeLabel } from '../lib/quranCalc.js';
   import { fetchPrayerTimes } from '../lib/prayerTimes.js';
   import { todayKey, daysBetween, startOfLocalDay, fmtDate, currentPrayerIdx, fmtPT } from '../lib/utils.js';
   import Icon from './Icon.svelte';
@@ -26,10 +26,8 @@
   $: absPage = $currentAbsPage;
   $: curPos = $currentPosition;
   $: isComplete = isQuranComplete(curPos);
-  $: totalKhatam = TOTAL_PAGES - $S.startPage + 1;
-  $: read = isComplete ? totalKhatam : Math.max(0, absPage - $S.startPage);
-  $: kPct = Math.min(100, Math.round((read / totalKhatam) * 100));
-  $: oPct = isComplete ? 100 : Math.min(100, Math.round((absPage / TOTAL_PAGES) * 100));
+  $: trackedPages = Math.max(0, absPage - $S.startPage);
+  $: quranPct = quranProgressPercent(absPage, isComplete);
   $: dayN = Math.max(1, daysBetween($S.startDate, todayKey()) + 1);
   $: today = startOfLocalDay();
   $: targetEnd = getTargetEndDate($S);
@@ -161,7 +159,7 @@
         Day {dayN} of {$S.targetDays}
       {/if}
     </h2>
-    <div class="today-pages">Page {absPage} of {TOTAL_PAGES} · {oPct}% of Quran</div>
+    <div class="today-pages">Page {absPage} of {TOTAL_PAGES} · {quranPct}% of Quran</div>
   </section>
 
   {#if targetMissed}
@@ -198,9 +196,9 @@
       </div>
       <div class="cr-surah-ar">{curPos.ar}</div>
     </div>
-    <div class="progress-track dark" role="progressbar" aria-label="Khatam progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={kPct}><span style="width:{kPct}%"></span></div>
+    <div class="progress-track dark" role="progressbar" aria-label="Quran progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={quranPct}><span style="width:{quranPct}%"></span></div>
     <div class="cr-footer">
-      <span>{kPct}% of this Khatam</span>
+      <span>{quranPct}% of Quran</span>
       <span>{lastCp ? `Updated ${lastCp.date}${lastCp.time ? ' · ' + lastCp.time : ''}` : 'No updates yet'}</span>
     </div>
   </section>
@@ -275,12 +273,12 @@
   <section class="card progress-summary" aria-labelledby="progress-heading">
     <div class="section-heading-row">
       <div>
-        <h2 class="card-title" id="progress-heading"><Icon name="chart" size={15}/> Khatam progress</h2>
-        <p class="section-subtitle">{read} of {totalKhatam} pages completed from your starting point.</p>
+        <h2 class="card-title" id="progress-heading"><Icon name="chart" size={15}/> Quran progress</h2>
+        <p class="section-subtitle">Page {absPage} of {TOTAL_PAGES} · {trackedPages} pages recorded since tracking began.</p>
       </div>
-      <strong class="summary-percent">{kPct}%</strong>
+      <strong class="summary-percent">{quranPct}%</strong>
     </div>
-    <div class="progress-track" role="progressbar" aria-label="Khatam progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={kPct}><span style="width:{kPct}%"></span></div>
+    <div class="progress-track" role="progressbar" aria-label="Quran progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={quranPct}><span style="width:{quranPct}%"></span></div>
     <div class="stats-grid compact">
       <div class="stat-box"><div class="stat-val">{remainingPages}</div><div class="stat-lbl">Pages left</div></div>
       <div class="stat-box overdue" class:active={targetMissed}><div class="stat-val">{targetMissed ? overdueDays : daysLeft}</div><div class="stat-lbl">{targetMissed ? 'Days overdue' : 'Days left'}</div></div>

@@ -2,7 +2,7 @@
   import { onMount, afterUpdate } from 'svelte';
   import { S, currentAbsPage, currentPosition } from '../lib/store.js';
   import { TOTAL_PAGES } from '../lib/quranData.js';
-  import { isQuranComplete } from '../lib/quranCalc.js';
+  import { isQuranComplete, quranProgressPercent } from '../lib/quranCalc.js';
   import { checkpointPageChanges, daysBetween, startOfLocalDay, todayKey } from '../lib/utils.js';
   import Icon from './Icon.svelte';
 
@@ -12,9 +12,8 @@
   $: absPage = $currentAbsPage;
   $: pos = $currentPosition;
   $: isComplete = isQuranComplete(pos);
-  $: totalKhatam = TOTAL_PAGES - $S.startPage + 1;
-  $: read = isComplete ? totalKhatam : Math.max(0, absPage - $S.startPage);
-  $: kPct = Math.min(100, Math.round((read / totalKhatam) * 100));
+  $: trackedPages = Math.max(0, absPage - $S.startPage);
+  $: quranPct = quranProgressPercent(absPage, isComplete);
   $: dayN = Math.max(1, daysBetween($S.startDate, todayKey()) + 1);
 
   $: chartData = (() => {
@@ -125,8 +124,8 @@
 <div class="card">
   <p class="card-title"><Icon name="chart" size={15}/> Overall Stats</p>
   <div class="stats-grid compact">
-    <div class="stat-box"><div class="stat-val">{kPct}%</div><div class="stat-lbl">Khatam Done</div></div>
-    <div class="stat-box"><div class="stat-val">{read}</div><div class="stat-lbl">Pages Read</div></div>
+    <div class="stat-box"><div class="stat-val">{quranPct}%</div><div class="stat-lbl">Quran Complete</div></div>
+    <div class="stat-box"><div class="stat-val">{trackedPages}</div><div class="stat-lbl">Pages Since Start</div></div>
     <div class="stat-box"><div class="stat-val">{cps.length}</div><div class="stat-lbl">Updates Saved</div></div>
     <div class="stat-box"><div class="stat-val">{absPage}</div><div class="stat-lbl">Current Page</div></div>
   </div>
