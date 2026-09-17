@@ -77,6 +77,19 @@
     <div class="settings-row"><span class="settings-label">Current position</span><span class="settings-val">{pos.ar} : {pos.ayat}</span></div>
   </div>
 
+  <div class="card">
+    <p class="card-title"><Icon name="book" size={15}/> Reading Edition</p>
+    <div class="edition-option selected" aria-current="true">
+      <div><strong>Medina Mushaf</strong><span>Hafs · authentic 604-page KFQC layout</span></div>
+      <span class="edition-status">Current</span>
+    </div>
+    <div class="edition-option planned">
+      <div><strong>Color Tajweed Mushaf</strong><span>Edition-specific pages and bookmark mapping</span></div>
+      <span class="edition-status">Planned</span>
+    </div>
+    <p class="settings-help edition-credit">Mushaf artwork and ayah-position metadata are provided by Quran.ws from King Fahd Quran Complex source material. Opening the reader downloads the selected page from its versioned CDN.</p>
+  </div>
+
   <!-- Prayer Times Location -->
   <div class="card">
     <p class="card-title"><Icon name="map-pin" size={15}/> Prayer Times Location</p>

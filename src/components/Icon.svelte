@@ -63,5 +63,9 @@
     <path d="m6 6 12 12M18 6 6 18"/>
   {:else if name === 'refresh'}
     <path d="M20 7h-6V1M4 17h6v6"/><path d="M20 7a9 9 0 0 0-15-2M4 17a9 9 0 0 0 15 2"/>
+  {:else if name === 'arrow-left'}
+    <path d="m15 18-6-6 6-6"/>
+  {:else if name === 'arrow-right'}
+    <path d="m9 18 6-6-6-6"/>
   {/if}
 </svg>

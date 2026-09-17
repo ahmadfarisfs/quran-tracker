@@ -201,6 +201,11 @@
       <span>{quranPct}% of Quran</span>
       <span>{lastCp ? `Updated ${lastCp.date}${lastCp.time ? ' · ' + lastCp.time : ''}` : 'No updates yet'}</span>
     </div>
+    <button id="open-reader" type="button" class="reader-entry-button" on:click={() => dispatch('navigate', 'reader')}>
+      <Icon name="book" size={18}/>
+      <span><strong>Read from this bookmark</strong><small>Open the Medina Mushaf at page {absPage}</small></span>
+      <Icon name="arrow-right" size={18}/>
+    </button>
   </section>
 
   {#if !targetMissed}

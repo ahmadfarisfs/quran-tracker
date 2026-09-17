@@ -27,6 +27,13 @@ A lightweight, installable Progressive Web App (PWA) to help you complete (*khat
 - **Session history** with a dot indicator for each of the 5 prayers per day
 - **Recovery planning** when a target date has passed, without unrealistic one-day catch-up targets
 
+### Mushaf Reader
+- Read directly from authentic 604-page Medina Mushaf vector pages
+- The reader opens at the exact saved bookmark and highlights its ayah
+- Tap any ayah, review the selection, then explicitly save it as the new bookmark
+- Page browsing never changes progress automatically
+- **Planned:** optional color Tajweed Mushaf edition with its own verified page mapping
+
 ### Technical
 - **PWA** — install to your home screen on Android or iOS; works fully offline after first load
 - **localStorage** — all data stays on your device, no backend, no account
